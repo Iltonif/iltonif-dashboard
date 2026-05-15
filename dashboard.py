@@ -436,7 +436,7 @@ with tab3:
         if val == "ALERTA COMP.": return "background-color:#ffa50022; color:#ffa500"
         return "background-color:#2196f322; color:#2196f3"
 
-    st.dataframe(df_tabla_p.style.applymap(color_señal_p, subset=["Señal"]),
+    st.dataframe(df_tabla_p.style.map(color_señal_p, subset=["Señal"]),
                  use_container_width=True, hide_index=True, height=400)
 
 # ==================== TAB 4: STOCK ====================
@@ -519,7 +519,7 @@ with tab4:
         if val == "EXCESO":     return "background-color:#2196f322; color:#2196f3"
         return "background-color:#00c85322; color:#00c853"
 
-    st.dataframe(df_tabla_s.style.applymap(color_señal_s, subset=["Señal"]),
+    st.dataframe(df_tabla_s.style.map(color_señal_s, subset=["Señal"]),
                  use_container_width=True, hide_index=True, height=400)
 
 # --- FOOTER ---
