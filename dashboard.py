@@ -162,6 +162,11 @@ with st.sidebar:
 <circle cx="28" cy="22" r="11" fill="white"/>
 <rect x="20" y="32" width="12" height="42" rx="6" fill="white" transform="rotate(-22 26 53)"/>
 </svg>''', unsafe_allow_html=True)
+    st.markdown('''<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+<rect width="80" height="80" rx="16" fill="#2563eb"/>
+<circle cx="28" cy="22" r="11" fill="white"/>
+<rect x="20" y="32" width="12" height="42" rx="6" fill="white" transform="rotate(-22 26 53)"/>
+</svg>''', unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("### Filtros")
 
