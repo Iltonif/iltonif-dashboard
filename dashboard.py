@@ -156,7 +156,7 @@ def generar_recomendaciones(df):
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.image("https://via.placeholder.com/200x60/1e2130/4fc3f7?text=ILTONIF", width=200)
+    st.image("https://raw.githubusercontent.com/iltonifsaas/iltonif-dashboard/main/iltonif_logo.png", width=180)
     st.markdown("---")
     st.markdown("### Filtros")
 
