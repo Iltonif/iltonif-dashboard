@@ -1,4 +1,3 @@
-LOGO_SVG = """<svg width="100" height="100" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg"><rect width="110" height="110" rx="18" fill="#0a0f1e"/><rect width="110" height="110" rx="18" fill="none" stroke="#22d3ee" stroke-width="2" opacity="0.8"/><rect x="18" y="62" width="14" height="28" rx="4" fill="#185FA5" opacity="0.8"/><rect x="37" y="44" width="14" height="46" rx="4" fill="#378ADD"/><rect x="56" y="28" width="14" height="62" rx="4" fill="#22d3ee"/><circle cx="83" cy="20" r="7" fill="#22d3ee"/><line x1="18" y1="68" x2="83" y2="20" stroke="#22d3ee" stroke-width="2" stroke-dasharray="4 3" opacity="0.6"/></svg>"""
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -169,12 +168,7 @@ with st.sidebar:
     <div style="font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:4px;margin-top:2px">PREDICE · DECIDE · CRECE</div>
   </div>
 </div>''', unsafe_allow_html=True)
-    st.markdown('''<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
-<rect width="80" height="80" rx="16" fill="#2563eb"/>
-<circle cx="28" cy="22" r="11" fill="white"/>
-<rect x="20" y="32" width="12" height="42" rx="6" fill="white" transform="rotate(-22 26 53)"/>
-</svg>''', unsafe_allow_html=True)
-    st.markdown("---")
+        st.markdown("---")
     st.markdown("### Filtros")
 
     df_raw = cargar_datos()
@@ -211,22 +205,18 @@ if cat_sel != "Todas":
     df_rec = df_rec[df_rec["Categoría"] == cat_sel]
 
 # --- HEADER ---
-col_logo, col_title = st.columns([1, 4])
-with col_logo:
-    st.markdown('''
-<div style="display:flex;align-items:center;gap:16px;margin-bottom:8px">
-<svg width="52" height="52" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
-<rect width="52" height="52" rx="10" fill="#2563eb"/>
-<circle cx="18" cy="16" r="7" fill="white"/>
-<rect x="13" y="22" width="8" height="26" rx="4" fill="white" transform="rotate(-22 17 35)"/>
-</svg>
-<div>
-<div style="font-size:28px;font-weight:800;color:#ffffff;letter-spacing:1px;line-height:1">ILTONIF</div>
-<div style="font-size:11px;color:#2563eb;letter-spacing:3px">INTELLIGENCE PLATFORM</div>
-</div>
+st.markdown('''
+<div style="display:flex;align-items:center;gap:18px;padding:16px 0 20px 0;border-bottom:1px solid rgba(37,99,235,0.2);margin-bottom:20px">
+  <svg width="52" height="52" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+    <rect width="52" height="52" rx="12" fill="#2563eb"/>
+    <circle cx="19" cy="16" r="7" fill="white"/>
+    <rect x="13" y="22" width="9" height="26" rx="4" fill="white" transform="rotate(-22 17 35)"/>
+  </svg>
+  <div>
+    <div style="font-size:30px;font-weight:800;color:#ffffff;letter-spacing:2px;line-height:1">ILTONIF</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:4px;margin-top:3px">PREDICE · DECIDE · CRECE</div>
+  </div>
 </div>''', unsafe_allow_html=True)
-with col_title:
-        st.markdown("---")
 
 # --- KPIs ---
 col1, col2, col3, col4, col5 = st.columns(5)
