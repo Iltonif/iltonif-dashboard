@@ -168,7 +168,7 @@ with st.sidebar:
     <div style="font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:4px;margin-top:2px">PREDICE · DECIDE · CRECE</div>
   </div>
 </div>''', unsafe_allow_html=True)
-        st.markdown("---")
+    st.markdown("---")
     st.markdown("### Filtros")
 
     df_raw = cargar_datos()
