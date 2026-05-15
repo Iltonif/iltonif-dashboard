@@ -157,11 +157,18 @@ def generar_recomendaciones(df):
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.markdown('''<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
-<rect width="80" height="80" rx="16" fill="#2563eb"/>
-<circle cx="28" cy="22" r="11" fill="white"/>
-<rect x="20" y="32" width="12" height="42" rx="6" fill="white" transform="rotate(-22 26 53)"/>
-</svg>''', unsafe_allow_html=True)
+    st.markdown('''
+<div style="display:flex;align-items:center;gap:20px;padding:8px 0 24px 0">
+  <svg width="56" height="56" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg">
+    <rect width="56" height="56" rx="14" fill="#2563eb"/>
+    <circle cx="20" cy="17" r="8" fill="white"/>
+    <rect x="14" y="24" width="10" height="28" rx="5" fill="white" transform="rotate(-22 19 38)"/>
+  </svg>
+  <div>
+    <div style="font-size:32px;font-weight:800;color:#ffffff;letter-spacing:2px;line-height:1.1">ILTONIF</div>
+    <div style="font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:4px;margin-top:2px">PREDICE · DECIDE · CRECE</div>
+  </div>
+</div>''', unsafe_allow_html=True)
     st.markdown('''<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
 <rect width="80" height="80" rx="16" fill="#2563eb"/>
 <circle cx="28" cy="22" r="11" fill="white"/>
@@ -219,9 +226,7 @@ with col_logo:
 </div>
 </div>''', unsafe_allow_html=True)
 with col_title:
-    st.markdown("# ILTONIF — Intelligence Platform")
-    st.markdown("##### Predice. Decide. Crece. · Pricing y stock en tiempo real")
-st.markdown("---")
+        st.markdown("---")
 
 # --- KPIs ---
 col1, col2, col3, col4, col5 = st.columns(5)
