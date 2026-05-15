@@ -156,7 +156,6 @@ def generar_recomendaciones(df):
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.image("https://raw.githubusercontent.com/iltonifsaas/iltonif-dashboard/main/iltonif_logo.png", width=180)
     st.markdown("---")
     st.markdown("### Filtros")
 
@@ -194,8 +193,12 @@ if cat_sel != "Todas":
     df_rec = df_rec[df_rec["Categoría"] == cat_sel]
 
 # --- HEADER ---
-st.markdown("# 🎯 ILTONIF — Intelligence Platform")
-st.markdown("##### Optimización de pricing y stock en tiempo real para ecommerce")
+col_logo, col_title = st.columns([1, 4])
+with col_logo:
+    st.image("https://raw.githubusercontent.com/iltonifsaas/iltonif-dashboard/main/iltonif_logo.png", width=110)
+with col_title:
+    st.markdown("# ILTONIF — Intelligence Platform")
+    st.markdown("##### Predice. Decide. Crece. · Pricing y stock en tiempo real")
 st.markdown("---")
 
 # --- KPIs ---
