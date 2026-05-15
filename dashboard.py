@@ -1,3 +1,4 @@
+LOGO_SVG = """<svg width="100" height="100" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg"><rect width="110" height="110" rx="18" fill="#0a0f1e"/><rect width="110" height="110" rx="18" fill="none" stroke="#22d3ee" stroke-width="2" opacity="0.8"/><rect x="18" y="62" width="14" height="28" rx="4" fill="#185FA5" opacity="0.8"/><rect x="37" y="44" width="14" height="46" rx="4" fill="#378ADD"/><rect x="56" y="28" width="14" height="62" rx="4" fill="#22d3ee"/><circle cx="83" cy="20" r="7" fill="#22d3ee"/><line x1="18" y1="68" x2="83" y2="20" stroke="#22d3ee" stroke-width="2" stroke-dasharray="4 3" opacity="0.6"/></svg>"""
 import streamlit as st
 import pandas as pd
 import numpy as np
