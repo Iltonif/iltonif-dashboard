@@ -206,15 +206,16 @@ if cat_sel != "Todas":
 
 # --- HEADER ---
 st.markdown('''
-<div style="display:flex;align-items:center;gap:18px;padding:16px 0 20px 0;border-bottom:1px solid rgba(37,99,235,0.2);margin-bottom:20px">
-  <svg width="52" height="52" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
-    <rect width="52" height="52" rx="12" fill="#2563eb"/>
-    <circle cx="19" cy="16" r="7" fill="white"/>
-    <rect x="13" y="22" width="9" height="26" rx="4" fill="white" transform="rotate(-22 17 35)"/>
+<div style="padding:24px 0 28px 0;border-bottom:1px solid rgba(37,99,235,0.2);margin-bottom:8px">
+  <svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+    <rect width="80" height="80" rx="20" fill="#2563eb"/>
+    <circle cx="29" cy="23" r="11" fill="white"/>
+    <rect x="20" y="33" width="14" height="42" rx="7" fill="white" transform="rotate(-22 27 54)"/>
   </svg>
-  <div>
-    <div style="font-size:30px;font-weight:800;color:#ffffff;letter-spacing:2px;line-height:1">ILTONIF</div>
-    <div style="font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:4px;margin-top:3px">PREDICE · DECIDE · CRECE</div>
+  <div style="margin-top:14px">
+    <div style="font-size:42px;font-weight:900;color:#ffffff;letter-spacing:4px;line-height:1;font-family:system-ui,sans-serif">ILTONIF</div>
+    <div style="font-size:14px;color:#2563eb;letter-spacing:2px;margin-top:8px;font-weight:600">Intelligence Platform</div>
+    <div style="font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:5px;margin-top:4px">PREDICE · DECIDE · CRECE</div>
   </div>
 </div>''', unsafe_allow_html=True)
 
