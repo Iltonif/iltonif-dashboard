@@ -19,6 +19,16 @@ st.markdown("""
 
 * { font-family: 'Outfit', sans-serif !important; }
 
+/* Espacio para que el header no quede tapado por la barra superior de Streamlit */
+.block-container { padding-top: 4rem !important; }
+
+/* Ocultar texto del botón colapso sidebar */
+[data-testid="collapsedControl"] { display: none !important; }
+button[kind="headerNoPadding"] { display: none !important; }
+.st-emotion-cache-1dp5vir { display: none !important; }
+section[data-testid="stSidebarCollapsedControl"] { display: none !important; }
+
+
 /* FONDO */
 .main { background: #020408 !important; }
 .block-container { padding: 0 2rem 2rem !important; max-width: 100% !important; }
