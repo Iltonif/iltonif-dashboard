@@ -22,8 +22,7 @@ st.markdown("""
 /* Ocultar barra superior de Streamlit */
 header[data-testid="stHeader"] { display: none !important; }
 
-/* Ocultar solo el texto del botón colapso, mantener el botón funcional */
-[data-testid="stSidebarCollapsedControl"] { opacity: 0.3 !important; }
+
 
 /* Sin padding extra porque ocultamos la barra */
 .block-container { padding-top: 2rem !important; }
