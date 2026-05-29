@@ -20,7 +20,7 @@ st.markdown("""
 * { font-family: 'Outfit', sans-serif !important; }
 
 /* Ocultar barra superior de Streamlit */
-/* header visible */
+header[data-testid="stHeader"] { background: transparent !important; }
 
 
 
@@ -30,7 +30,7 @@ st.markdown("""
 
 /* FONDO */
 .main { background: #020408 !important; }
-.block-container { padding: 0 2rem 2rem !important; max-width: 100% !important; }
+.block-container { padding: 3.5rem 2rem 2rem !important; max-width: 100% !important; }
 
 /* SIDEBAR */
 [data-testid="stSidebar"] {
