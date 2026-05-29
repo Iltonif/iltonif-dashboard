@@ -332,6 +332,24 @@ def generar_recomendaciones(df):
     return pd.DataFrame(recs)
 
 
+# ── BOTÓN SIDEBAR PROPIO ────────────────────────────────────────
+st.markdown('''
+<button id="sidebar-toggle" onclick="toggleSidebar()" title="Abrir/cerrar menú">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="5" width="18" height="2" rx="1"/>
+    <rect x="3" y="11" width="18" height="2" rx="1"/>
+    <rect x="3" y="17" width="18" height="2" rx="1"/>
+  </svg>
+</button>
+<script>
+function toggleSidebar() {
+    const sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+    const btn = window.parent.document.querySelector('[data-testid="stSidebarCollapsedControl"]');
+    if (btn) btn.click();
+}
+</script>
+''', unsafe_allow_html=True)
+
 # ── SIDEBAR ────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown('''
