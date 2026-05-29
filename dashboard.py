@@ -409,6 +409,20 @@ sku_nombres = {r["sku_id"]: r["nombre_producto"]
 
 # ── KPIs ───────────────────────────────────────────────────────
 
+st.markdown('''
+<div style="display:flex;align-items:center;gap:18px;padding:16px 0 24px;border-bottom:1px solid rgba(29,106,245,0.2);margin-bottom:24px">
+  <svg width="50" height="50" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+    <rect width="44" height="44" rx="10" fill="#1d6af5"/>
+    <circle cx="16" cy="13" r="6" fill="white"/>
+    <rect x="11" y="18" width="8" height="22" rx="4" fill="white" transform="rotate(-22 15 29)"/>
+  </svg>
+  <div>
+    <div style="font-family:Bebas Neue,sans-serif;font-size:2.2rem;letter-spacing:0.06em;line-height:1;color:#fff">ILTONIF</div>
+    <div style="font-size:0.7rem;letter-spacing:0.22em;color:#1d6af5;text-transform:uppercase;margin-top:3px">Intelligence Platform · Pricing & Stock AI</div>
+  </div>
+</div>
+''', unsafe_allow_html=True)
+
 criticos    = (df_rec["señal_stock"]   == "CRÍTICO").sum()
 reposicion  = (df_rec["señal_stock"]   == "REPOSICIÓN").sum()
 precio_alto = (df_rec["señal_pricing"] == "PRECIO ALTO").sum()
