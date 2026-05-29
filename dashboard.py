@@ -19,17 +19,14 @@ st.markdown("""
 
 * { font-family: 'Outfit', sans-serif !important; }
 
-/* Bajar contenido para no quedar tapado por barra superior */
-.block-container { padding-top: 5rem !important; }
+/* Ocultar barra superior de Streamlit */
+header[data-testid="stHeader"] { display: none !important; }
 
-/* Ocultar SOLO el texto del botón colapso sidebar, no el botón */
-[data-testid="stSidebarCollapsedControl"] span { display: none !important; }
-[data-testid="stSidebarCollapsedControl"] svg { display: none !important; }
-[data-testid="stSidebarCollapsedControl"] { 
-    background: transparent !important; 
-    border: none !important;
-    opacity: 0 !important;
-}
+/* Ocultar botón colapso sidebar completamente */
+[data-testid="stSidebarCollapsedControl"] { display: none !important; }
+
+/* Sin padding extra porque ocultamos la barra */
+.block-container { padding-top: 2rem !important; }
 
 
 /* FONDO */
