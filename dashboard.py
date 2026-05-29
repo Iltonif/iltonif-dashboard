@@ -19,14 +19,17 @@ st.markdown("""
 
 * { font-family: 'Outfit', sans-serif !important; }
 
-/* Espacio para que el header no quede tapado por la barra superior de Streamlit */
-.block-container { padding-top: 4rem !important; }
+/* Bajar contenido para no quedar tapado por barra superior */
+.block-container { padding-top: 5rem !important; }
 
-/* Ocultar texto del botón colapso sidebar */
-[data-testid="collapsedControl"] { display: none !important; }
-button[kind="headerNoPadding"] { display: none !important; }
-.st-emotion-cache-1dp5vir { display: none !important; }
-section[data-testid="stSidebarCollapsedControl"] { display: none !important; }
+/* Ocultar SOLO el texto del botón colapso sidebar, no el botón */
+[data-testid="stSidebarCollapsedControl"] span { display: none !important; }
+[data-testid="stSidebarCollapsedControl"] svg { display: none !important; }
+[data-testid="stSidebarCollapsedControl"] { 
+    background: transparent !important; 
+    border: none !important;
+    opacity: 0 !important;
+}
 
 
 /* FONDO */
