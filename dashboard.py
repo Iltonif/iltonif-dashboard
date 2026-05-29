@@ -20,7 +20,7 @@ st.markdown("""
 * { font-family: 'Outfit', sans-serif !important; }
 
 /* Ocultar barra superior de Streamlit */
-header[data-testid="stHeader"] { display: none !important; }
+/* header visible */
 
 
 
