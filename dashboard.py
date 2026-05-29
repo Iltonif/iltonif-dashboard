@@ -378,27 +378,6 @@ sku_nombres = {r["sku_id"]: r["nombre_producto"]
                for _, r in df[["sku_id","nombre_producto"]].drop_duplicates().iterrows()}
 
 
-# ── HEADER PRINCIPAL ───────────────────────────────────────────
-st.markdown('''
-<div style="
-  background:linear-gradient(135deg,#030610,#060d1a);
-  border-bottom:1px solid rgba(29,106,245,0.2);
-  padding:24px 0 20px;
-  margin-bottom:32px;
-">
-  <div style="display:flex;align-items:center;gap:20px">
-    <svg width="56" height="56" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-      <rect width="44" height="44" rx="10" fill="#1d6af5"/>
-      <circle cx="16" cy="13" r="6" fill="white"/>
-      <rect x="11" y="18" width="8" height="22" rx="4" fill="white" transform="rotate(-22 15 29)"/>
-    </svg>
-    <div>
-      <div style="font-family:\'Bebas Neue\',sans-serif;font-size:2.6rem;letter-spacing:0.06em;line-height:1;color:#fff">ILTONIF</div>
-      <div style="font-size:0.75rem;letter-spacing:0.25em;color:#1d6af5;text-transform:uppercase;margin-top:4px">Intelligence Platform · Pricing & Stock AI</div>
-    </div>
-  </div>
-</div>
-''', unsafe_allow_html=True)
 
 
 # ── KPIs ───────────────────────────────────────────────────────
