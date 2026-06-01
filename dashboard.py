@@ -596,9 +596,12 @@ with tab3:
 
     PALETTE = ["#1d6af5","#f43f5e","#a855f7","#4ade80"]
     fig_p = go.Figure()
-    for i,(col,name) in enumerate(zip(
-        ["precio_venta","precio_decathlon","precio_trailzone","precio_outdoorpro"],
-        ["Tu precio","Decathlon","TrailZone","OutdoorPro"])):
+    # Detectar columnas de competidores disponibles
+comp_cols = [c for c in ultimo_df.columns if c.startswith("precio_") and c != "precio_venta" and c != "precio_comp_min" and c != "precio_comp_avg" and c != "precio_comp_max"]
+comp_names = [c.replace("precio_","").replace("_"," ").title() for c in comp_cols]
+all_cols = ["precio_venta"] + comp_cols
+all_names = ["Tu precio"] + comp_names
+for i,(col,name) in enumerate(zip(all_cols, all_names)):
         fig_p.add_trace(go.Bar(name=name, x=productos, y=ultimo_df[col], marker_color=PALETTE[i]))
 
     fig_p.update_layout(barmode="group",
@@ -614,12 +617,10 @@ with tab3:
                          format_func=lambda x: f"{x} — {sku_nombres.get(x,'')}", key="p_sku")
     df_sku = df[df["sku_id"] == sku_p]
     fig_ev = go.Figure()
-    for col, name, color, dash in [
-        ("precio_venta","Tu precio","#1d6af5","solid"),
-        ("precio_decathlon","Decathlon","#f43f5e","dot"),
-        ("precio_trailzone","TrailZone","#a855f7","dot"),
-        ("precio_outdoorpro","OutdoorPro","#4ade80","dot"),
-    ]:
+    comp_cols_sku = [c for c in df_sku.columns if c.startswith("precio_") and c != "precio_venta" and c != "precio_comp_min" and c != "precio_comp_avg" and c != "precio_comp_max"]
+    colores_comp = ["#f43f5e","#a855f7","#4ade80","#fb923c"]
+    all_ev = [("precio_venta","Tu precio","#1d6af5","solid")] + [(col, col.replace("precio_","").replace("_"," ").title(), colores_comp[i%len(colores_comp)], "dot") for i,col in enumerate(comp_cols_sku)]
+    for col, name, color, dash in all_ev:
         fig_ev.add_trace(go.Scatter(x=df_sku["fecha"], y=df_sku[col],
             name=name, line=dict(color=color, width=2.5 if dash=="solid" else 1.5, dash=dash)))
     fig_ev.update_layout(
