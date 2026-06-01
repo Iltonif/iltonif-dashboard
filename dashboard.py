@@ -596,13 +596,12 @@ with tab3:
 
     PALETTE = ["#1d6af5","#f43f5e","#a855f7","#4ade80"]
     fig_p = go.Figure()
-    # Detectar columnas de competidores disponibles
-comp_cols = [c for c in ultimo_df.columns if c.startswith("precio_") and c != "precio_venta" and c != "precio_comp_min" and c != "precio_comp_avg" and c != "precio_comp_max"]
-comp_names = [c.replace("precio_","").replace("_"," ").title() for c in comp_cols]
-all_cols = ["precio_venta"] + comp_cols
-all_names = ["Tu precio"] + comp_names
-for i,(col,name) in enumerate(zip(all_cols, all_names)):
-        fig_p.add_trace(go.Bar(name=name, x=productos, y=ultimo_df[col], marker_color=PALETTE[i]))
+    comp_cols = [c for c in ultimo_df.columns if c.startswith("precio_") and c not in ["precio_venta","precio_comp_min","precio_comp_avg","precio_comp_max"]]
+    comp_names = [c.replace("precio_","").replace("_"," ").title() for c in comp_cols]
+    all_cols = ["precio_venta"] + comp_cols
+    all_names = ["Tu precio"] + comp_names
+    for i,(col,name) in enumerate(zip(all_cols, all_names)):
+        fig_p.add_trace(go.Bar(name=name, x=productos, y=ultimo_df[col], marker_color=PALETTE[i % len(PALETTE)]))
 
     fig_p.update_layout(barmode="group",
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(6,13,26,0.5)",
