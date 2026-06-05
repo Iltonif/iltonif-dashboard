@@ -19,18 +19,9 @@ st.markdown("""
 
 * { font-family: 'Outfit', sans-serif !important; }
 
-/* Ocultar barra superior de Streamlit */
-header[data-testid="stHeader"] { background: transparent !important; }
-
-
-
-/* Sin padding extra porque ocultamos la barra */
-.block-container { padding-top: 2rem !important; }
-
-
 /* FONDO */
 .main { background: #020408 !important; }
-.block-container { padding: 3.5rem 2rem 2rem !important; max-width: 100% !important; }
+.block-container { padding: 0 2rem 2rem !important; max-width: 100% !important; }
 
 /* SIDEBAR */
 [data-testid="stSidebar"] {
@@ -253,14 +244,10 @@ header[data-testid="stHeader"] { background: transparent !important; }
 
 # ── DATOS ──────────────────────────────────────────────────────
 @st.cache_data
-def cargar_datos(cliente):
-    base = Path(__file__).parent / "data" / cliente
-    df = pd.read_csv(base / "dataset.csv", parse_dates=["fecha"])
-    return df
-
-def get_clientes():
+def cargar_datos():
     base = Path(__file__).parent / "data"
-    return [d.name for d in base.iterdir() if d.is_dir() and (d / "dataset.csv").exists()]
+    df = pd.read_csv(base / "iltonif_dataset_modelable_v3.csv", parse_dates=["fecha"])
+    return df
 
 @st.cache_data
 def generar_recomendaciones(df):
@@ -336,24 +323,6 @@ def generar_recomendaciones(df):
     return pd.DataFrame(recs)
 
 
-# ── BOTÓN SIDEBAR PROPIO ────────────────────────────────────────
-st.markdown('''
-<button id="sidebar-toggle" onclick="toggleSidebar()" title="Abrir/cerrar menú">
-  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <rect x="3" y="5" width="18" height="2" rx="1"/>
-    <rect x="3" y="11" width="18" height="2" rx="1"/>
-    <rect x="3" y="17" width="18" height="2" rx="1"/>
-  </svg>
-</button>
-<script>
-function toggleSidebar() {
-    const sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
-    const btn = window.parent.document.querySelector('[data-testid="stSidebarCollapsedControl"]');
-    if (btn) btn.click();
-}
-</script>
-''', unsafe_allow_html=True)
-
 # ── SIDEBAR ────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown('''
@@ -371,9 +340,7 @@ with st.sidebar:
     ''', unsafe_allow_html=True)
     st.markdown("---")
 
-    clientes = get_clientes()
-    cliente_sel = st.selectbox("🏪 Cliente", options=clientes, format_func=lambda x: x.upper())
-    df_raw = cargar_datos(cliente_sel)
+    df_raw = cargar_datos()
     st.markdown('<div style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#475569;margin-bottom:8px">Filtros</div>', unsafe_allow_html=True)
 
     categorias = ["Todas"] + sorted(df_raw["categoria"].unique().tolist())
@@ -411,24 +378,30 @@ sku_nombres = {r["sku_id"]: r["nombre_producto"]
                for _, r in df[["sku_id","nombre_producto"]].drop_duplicates().iterrows()}
 
 
-
-
-# ── KPIs ───────────────────────────────────────────────────────
-
+# ── HEADER PRINCIPAL ───────────────────────────────────────────
 st.markdown('''
-<div style="display:flex;align-items:center;gap:18px;padding:16px 0 24px;border-bottom:1px solid rgba(29,106,245,0.2);margin-bottom:24px">
-  <svg width="50" height="50" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-    <rect width="44" height="44" rx="10" fill="#1d6af5"/>
-    <circle cx="16" cy="13" r="6" fill="white"/>
-    <rect x="11" y="18" width="8" height="22" rx="4" fill="white" transform="rotate(-22 15 29)"/>
-  </svg>
-  <div>
-    <div style="font-family:Bebas Neue,sans-serif;font-size:2.2rem;letter-spacing:0.06em;line-height:1;color:#fff">ILTONIF</div>
-    <div style="font-size:0.7rem;letter-spacing:0.22em;color:#1d6af5;text-transform:uppercase;margin-top:3px">Intelligence Platform · Pricing & Stock AI</div>
+<div style="
+  background:linear-gradient(135deg,#030610,#060d1a);
+  border-bottom:1px solid rgba(29,106,245,0.2);
+  padding:24px 0 20px;
+  margin-bottom:32px;
+">
+  <div style="display:flex;align-items:center;gap:20px">
+    <svg width="56" height="56" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+      <rect width="44" height="44" rx="10" fill="#1d6af5"/>
+      <circle cx="16" cy="13" r="6" fill="white"/>
+      <rect x="11" y="18" width="8" height="22" rx="4" fill="white" transform="rotate(-22 15 29)"/>
+    </svg>
+    <div>
+      <div style="font-family:\'Bebas Neue\',sans-serif;font-size:2.6rem;letter-spacing:0.06em;line-height:1;color:#fff">ILTONIF</div>
+      <div style="font-size:0.75rem;letter-spacing:0.25em;color:#1d6af5;text-transform:uppercase;margin-top:4px">Intelligence Platform · Pricing & Stock AI</div>
+    </div>
   </div>
 </div>
 ''', unsafe_allow_html=True)
 
+
+# ── KPIs ───────────────────────────────────────────────────────
 criticos    = (df_rec["señal_stock"]   == "CRÍTICO").sum()
 reposicion  = (df_rec["señal_stock"]   == "REPOSICIÓN").sum()
 precio_alto = (df_rec["señal_pricing"] == "PRECIO ALTO").sum()
@@ -602,12 +575,10 @@ with tab3:
 
     PALETTE = ["#1d6af5","#f43f5e","#a855f7","#4ade80"]
     fig_p = go.Figure()
-    comp_cols = [c for c in ultimo_df.columns if c.startswith("precio_") and c not in ["precio_venta","precio_comp_min","precio_comp_avg","precio_comp_max"]]
-    comp_names = [c.replace("precio_","").replace("_"," ").title() for c in comp_cols]
-    all_cols = ["precio_venta"] + comp_cols
-    all_names = ["Tu precio"] + comp_names
-    for i,(col,name) in enumerate(zip(all_cols, all_names)):
-        fig_p.add_trace(go.Bar(name=name, x=productos, y=ultimo_df[col], marker_color=PALETTE[i % len(PALETTE)]))
+    for i,(col,name) in enumerate(zip(
+        ["precio_venta","precio_decathlon","precio_trailzone","precio_outdoorpro"],
+        ["Tu precio","Decathlon","TrailZone","OutdoorPro"])):
+        fig_p.add_trace(go.Bar(name=name, x=productos, y=ultimo_df[col], marker_color=PALETTE[i]))
 
     fig_p.update_layout(barmode="group",
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(6,13,26,0.5)",
@@ -622,23 +593,12 @@ with tab3:
                          format_func=lambda x: f"{x} — {sku_nombres.get(x,'')}", key="p_sku")
     df_sku = df[df["sku_id"] == sku_p]
     fig_ev = go.Figure()
-    comp_cols_sku = [c for c in df_sku.columns if c.startswith("precio_") and c not in ["precio_venta","precio_comp_min","precio_comp_avg","precio_comp_max"]]
-    # Mapeo de nombres reales de competidores según columnas del dataset
-    nombre_comp = {
-        "precio_decathlon":   "Decathlon",
-        "precio_trailzone":   "Ortoweb",
-        "precio_outdoorpro":  "Medicalexpo",
-        "precio_kayaks_es":   "Kayaks.es",
-        "precio_deportes":    "Deport-es",
-        "precio_agrucon":     "Agrucon",
-        "precio_batlle":      "Batlle",
-        "precio_compo":       "Compo",
-    }
-    colores_comp = ["#f43f5e","#a855f7","#4ade80","#fb923c"]
-    all_ev = [("precio_venta","Tu precio","#1d6af5","solid")] + [
-        (col, nombre_comp.get(col, col.replace("precio_","").replace("_"," ").title()), colores_comp[i%len(colores_comp)], "dot")
-        for i,col in enumerate(comp_cols_sku)]
-    for col, name, color, dash in all_ev:
+    for col, name, color, dash in [
+        ("precio_venta","Tu precio","#1d6af5","solid"),
+        ("precio_decathlon","Decathlon","#f43f5e","dot"),
+        ("precio_trailzone","TrailZone","#a855f7","dot"),
+        ("precio_outdoorpro","OutdoorPro","#4ade80","dot"),
+    ]:
         fig_ev.add_trace(go.Scatter(x=df_sku["fecha"], y=df_sku[col],
             name=name, line=dict(color=color, width=2.5 if dash=="solid" else 1.5, dash=dash)))
     fig_ev.update_layout(
@@ -653,7 +613,6 @@ with tab3:
     cols_p = ["Producto","Categoría","señal_pricing","accion_pricing","Precio actual","Precio rec.","Comp. mín.","Impacto pricing €"]
     df_tp = df_rec[cols_p].copy()
     df_tp.columns = ["Producto","Categoría","Señal","Acción","Precio actual €","Precio rec. €","Comp. mín. €","Impacto €"]
-    # Renombrar competidores en título de gráfica
     def color_p(val):
         m = {"PRECIO ALTO":"background-color:rgba(244,63,94,0.12);color:#f43f5e",
              "SUBIR PRECIO":"background-color:rgba(74,222,128,0.12);color:#4ade80",
