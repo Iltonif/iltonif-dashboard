@@ -616,9 +616,22 @@ with tab3:
                          format_func=lambda x: f"{x} — {sku_nombres.get(x,'')}", key="p_sku")
     df_sku = df[df["sku_id"] == sku_p]
     fig_ev = go.Figure()
-    comp_cols_sku = [c for c in df_sku.columns if c.startswith("precio_") and c != "precio_venta" and c != "precio_comp_min" and c != "precio_comp_avg" and c != "precio_comp_max"]
+    comp_cols_sku = [c for c in df_sku.columns if c.startswith("precio_") and c not in ["precio_venta","precio_comp_min","precio_comp_avg","precio_comp_max"]]
+    # Mapeo de nombres reales de competidores según columnas del dataset
+    nombre_comp = {
+        "precio_decathlon":   "Decathlon",
+        "precio_trailzone":   "Ortoweb",
+        "precio_outdoorpro":  "Medicalexpo",
+        "precio_kayaks_es":   "Kayaks.es",
+        "precio_deportes":    "Deport-es",
+        "precio_agrucon":     "Agrucon",
+        "precio_batlle":      "Batlle",
+        "precio_compo":       "Compo",
+    }
     colores_comp = ["#f43f5e","#a855f7","#4ade80","#fb923c"]
-    all_ev = [("precio_venta","Tu precio","#1d6af5","solid")] + [(col, col.replace("precio_","").replace("_"," ").title(), colores_comp[i%len(colores_comp)], "dot") for i,col in enumerate(comp_cols_sku)]
+    all_ev = [("precio_venta","Tu precio","#1d6af5","solid")] + [
+        (col, nombre_comp.get(col, col.replace("precio_","").replace("_"," ").title()), colores_comp[i%len(colores_comp)], "dot")
+        for i,col in enumerate(comp_cols_sku)]
     for col, name, color, dash in all_ev:
         fig_ev.add_trace(go.Scatter(x=df_sku["fecha"], y=df_sku[col],
             name=name, line=dict(color=color, width=2.5 if dash=="solid" else 1.5, dash=dash)))
@@ -634,6 +647,7 @@ with tab3:
     cols_p = ["Producto","Categoría","señal_pricing","accion_pricing","Precio actual","Precio rec.","Comp. mín.","Impacto pricing €"]
     df_tp = df_rec[cols_p].copy()
     df_tp.columns = ["Producto","Categoría","Señal","Acción","Precio actual €","Precio rec. €","Comp. mín. €","Impacto €"]
+    # Renombrar competidores en título de gráfica
     def color_p(val):
         m = {"PRECIO ALTO":"background-color:rgba(244,63,94,0.12);color:#f43f5e",
              "SUBIR PRECIO":"background-color:rgba(74,222,128,0.12);color:#4ade80",
