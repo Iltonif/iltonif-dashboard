@@ -253,14 +253,10 @@ header[data-testid="stHeader"] { background: transparent !important; }
 
 # ── DATOS ──────────────────────────────────────────────────────
 @st.cache_data
-def cargar_datos(cliente):
-    base = Path(__file__).parent / "data" / cliente
-    df = pd.read_csv(base / "dataset.csv", parse_dates=["fecha"])
-    return df
-
-def get_clientes():
+def cargar_datos():
     base = Path(__file__).parent / "data"
-    return [d.name for d in base.iterdir() if d.is_dir() and (d / "dataset.csv").exists()]
+    df = pd.read_csv(base / "iltonif_dataset_modelable_v3.csv", parse_dates=["fecha"])
+    return df
 
 @st.cache_data
 def generar_recomendaciones(df):
@@ -371,9 +367,7 @@ with st.sidebar:
     ''', unsafe_allow_html=True)
     st.markdown("---")
 
-    clientes = get_clientes()
-    cliente_sel = st.selectbox("🏪 Cliente", options=clientes, format_func=lambda x: x.upper())
-    df_raw = cargar_datos(cliente_sel)
+    df_raw = cargar_datos()
     st.markdown('<div style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#475569;margin-bottom:8px">Filtros</div>', unsafe_allow_html=True)
 
     categorias = ["Todas"] + sorted(df_raw["categoria"].unique().tolist())
