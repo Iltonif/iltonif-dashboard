@@ -620,8 +620,8 @@ with tab3:
     # Mapeo de nombres reales de competidores según columnas del dataset
     nombre_comp = {
         "precio_decathlon":   "Decathlon",
-        "precio_trailzone":   "Ortoweb",
-        "precio_outdoorpro":  "Medicalexpo",
+        "precio_trailzone":   "TrailZone",
+        "precio_outdoorpro":  "OutdoorPro",
         "precio_kayaks_es":   "Kayaks.es",
         "precio_deportes":    "Deport-es",
         "precio_agrucon":     "Agrucon",
