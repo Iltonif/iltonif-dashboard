@@ -395,8 +395,11 @@ with st.sidebar:
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
         <div style="width:38px;height:38px;background:linear-gradient(135deg,#4F46E5,#7C3AED);border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(79,70,229,0.3)">
           <svg width="20" height="20" viewBox="0 0 44 44" fill="none">
-            <circle cx="16" cy="13" r="6" fill="white"/>
-            <rect x="11" y="18" width="8" height="22" rx="4" fill="white" transform="rotate(-22 15 29)"/>
+            <rect x="6" y="30" width="6" height="8" rx="1.5" fill="#4F46E5" opacity="0.5"/>
+            <rect x="14" y="22" width="6" height="16" rx="1.5" fill="#4F46E5" opacity="0.75"/>
+            <rect x="22" y="14" width="6" height="24" rx="1.5" fill="#4F46E5"/>
+            <circle cx="36" cy="8" r="4" fill="#06B6D4"/>
+            <polyline points="9,30 17,22 25,14 36,8" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
           </svg>
         </div>
         <div>
