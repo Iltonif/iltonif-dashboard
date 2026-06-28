@@ -21,7 +21,11 @@ st.markdown("""
 
 /* ── FONDO GENERAL ── */
 .main { background: #F8F9FC !important; }
-.block-container { padding: 1.5rem 2rem 2rem !important; max-width: 100% !important; }
+.block-container { padding: 1.5rem 2rem 2rem !important; max-width: 100% !important; background: #F8F9FC !important; }
+[data-testid="stAppViewContainer"] { background: #F8F9FC !important; }
+[data-testid="stVerticalBlock"] { background: transparent !important; }
+.stApp { background: #F8F9FC !important; }
+section.main { background: #F8F9FC !important; }
 
 /* ── BARRA SUPERIOR STREAMLIT ── */
 header[data-testid="stHeader"] { background: #ffffff !important; border-bottom: 1px solid #E4E7F0 !important; }
