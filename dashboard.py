@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 st.set_page_config(
-    page_title="ILTONIF — Intelligence Platform",
+    page_title="ILTONIF — Pricing & Stock AI",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -485,12 +485,17 @@ st.markdown(f"""
         border-radius:16px;
         display:flex;align-items:center;justify-content:center;
         border:1px solid rgba(255,255,255,0.2);
-        backdrop-filter:blur(10px);
         box-shadow:0 4px 16px rgba(0,0,0,0.15);
     ">
-      <svg width="28" height="28" viewBox="0 0 44 44" fill="none">
-        <circle cx="16" cy="13" r="7" fill="white"/>
-        <rect x="11" y="18" width="8" height="22" rx="4" fill="white" transform="rotate(-22 15 29)"/>
+      <svg width="32" height="32" viewBox="0 0 44 44" fill="none">
+        <!-- Barras ascendentes -->
+        <rect x="6" y="30" width="6" height="8" rx="1.5" fill="white" opacity="0.5"/>
+        <rect x="14" y="22" width="6" height="16" rx="1.5" fill="white" opacity="0.75"/>
+        <rect x="22" y="14" width="6" height="24" rx="1.5" fill="white"/>
+        <!-- Punto cyan tendencia -->
+        <circle cx="36" cy="8" r="4" fill="#06B6D4"/>
+        <!-- Línea tendencia -->
+        <polyline points="9,30 17,22 25,14 36,8" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
       </svg>
     </div>
     <div>
@@ -508,7 +513,7 @@ st.markdown(f"""
           text-transform:uppercase;
           color:rgba(255,255,255,0.7);
           margin-top:4px;
-      ">Intelligence Platform</div>
+      ">Pricing & Stock AI</div>
     </div>
   </div>
 
