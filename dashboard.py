@@ -19,31 +19,8 @@ st.markdown("""
 
 * { font-family: 'Inter', sans-serif !important; }
 
-/* Ocultar texto feo del botón sidebar nativo */
-[data-testid="stSidebarCollapsedControl"] {
-    background: #4F46E5 !important;
-    border-radius: 9px !important;
-    width: 38px !important;
-    height: 38px !important;
-    top: 12px !important;
-    left: 12px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    box-shadow: 0 4px 12px rgba(79,70,229,0.35) !important;
-    overflow: hidden !important;
-}
-[data-testid="stSidebarCollapsedControl"] * {
-    display: none !important;
-}
-[data-testid="stSidebarCollapsedControl"]::after {
-    content: '≡' !important;
-    display: block !important;
-    color: white !important;
-    font-size: 1.3rem !important;
-    font-weight: 300 !important;
-    line-height: 1 !important;
-}
+/* Ocultar completamente el botón colapso sidebar */
+[data-testid="stSidebarCollapsedControl"] { display: none !important; }
 
 /* ── FONDO GENERAL ── */
 .main { background: #F8F9FC !important; }
@@ -481,26 +458,95 @@ sku_nombres = {r["sku_id"]: r["nombre_producto"]
 
 
 # ── HEADER ────────────────────────────────────────────────────
-col_h1, col_h2 = st.columns([3, 1])
-with col_h1:
-    st.markdown("""
-    <div style="padding:4px 0 20px">
-      <div style="font-size:1.6rem;font-weight:800;color:#0F172A;letter-spacing:-0.02em;line-height:1.1">
-        Panel de control
-      </div>
-      <div style="font-size:0.82rem;color:#94A3B8;margin-top:4px;font-weight:400">
-        Pricing & Stock Intelligence · Análisis en tiempo real
-      </div>
+today = datetime.now().strftime("%d %b %Y")
+st.markdown(f"""
+<div style="
+    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #4F46E5 100%);
+    border-radius: 20px;
+    padding: 32px 40px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 8px 32px rgba(79,70,229,0.25);
+    position: relative;
+    overflow: hidden;
+">
+  <!-- Círculos decorativos fondo -->
+  <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,0.05)"></div>
+  <div style="position:absolute;bottom:-60px;right:120px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,0.04)"></div>
+  <div style="position:absolute;top:10px;right:200px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.04)"></div>
+
+  <!-- Logo + Nombre -->
+  <div style="display:flex;align-items:center;gap:20px;position:relative;z-index:1">
+    <div style="
+        width:56px;height:56px;
+        background:rgba(255,255,255,0.15);
+        border-radius:16px;
+        display:flex;align-items:center;justify-content:center;
+        border:1px solid rgba(255,255,255,0.2);
+        backdrop-filter:blur(10px);
+        box-shadow:0 4px 16px rgba(0,0,0,0.15);
+    ">
+      <svg width="28" height="28" viewBox="0 0 44 44" fill="none">
+        <circle cx="16" cy="13" r="7" fill="white"/>
+        <rect x="11" y="18" width="8" height="22" rx="4" fill="white" transform="rotate(-22 15 29)"/>
+      </svg>
     </div>
-    """, unsafe_allow_html=True)
-with col_h2:
-    today = datetime.now().strftime("%d %b %Y")
-    st.markdown(f"""
-    <div style="padding:4px 0 20px;text-align:right">
-      <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#94A3B8">Última actualización</div>
-      <div style="font-size:0.9rem;font-weight:700;color:#4F46E5;margin-top:2px;font-family:'JetBrains Mono',monospace">{today}</div>
+    <div>
+      <div style="
+          font-size:1.8rem;
+          font-weight:900;
+          color:white;
+          letter-spacing:-0.01em;
+          line-height:1;
+      ">ILTONIF</div>
+      <div style="
+          font-size:0.72rem;
+          font-weight:600;
+          letter-spacing:0.2em;
+          text-transform:uppercase;
+          color:rgba(255,255,255,0.7);
+          margin-top:4px;
+      ">Intelligence Platform</div>
     </div>
-    """, unsafe_allow_html=True)
+  </div>
+
+  <!-- Slogan centro -->
+  <div style="text-align:center;position:relative;z-index:1">
+    <div style="
+        font-size:1rem;
+        font-weight:600;
+        color:rgba(255,255,255,0.95);
+        font-style:italic;
+        letter-spacing:0.01em;
+    ">"Predice. Decide. Crece."</div>
+    <div style="
+        font-size:0.72rem;
+        color:rgba(255,255,255,0.55);
+        margin-top:4px;
+        letter-spacing:0.08em;
+        text-transform:uppercase;
+    ">Pricing & Stock AI para e-commerce</div>
+  </div>
+
+  <!-- Fecha + estado -->
+  <div style="text-align:right;position:relative;z-index:1">
+    <div style="
+        display:inline-flex;align-items:center;gap:8px;
+        background:rgba(255,255,255,0.12);
+        border:1px solid rgba(255,255,255,0.15);
+        border-radius:100px;
+        padding:6px 14px;
+        margin-bottom:8px;
+    ">
+      <div style="width:7px;height:7px;border-radius:50%;background:#4ADE80;box-shadow:0 0 8px rgba(74,222,128,0.6)"></div>
+      <div style="font-size:0.72rem;font-weight:600;color:rgba(255,255,255,0.9)">Pipeline activo</div>
+    </div>
+    <div style="font-size:0.75rem;color:rgba(255,255,255,0.5);font-family:'JetBrains Mono',monospace">{today}</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
 
 # ── KPIs ──────────────────────────────────────────────────────
