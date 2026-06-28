@@ -332,6 +332,59 @@ def generar_recomendaciones(df):
     return pd.DataFrame(recs)
 
 
+# ── BOTÓN SIDEBAR FLOTANTE ──────────────────────────────────────
+st.markdown('''
+<style>
+[data-testid="stSidebarCollapsedControl"] {
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+#sidebar-btn {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: 9999;
+    width: 38px;
+    height: 38px;
+    background: #4F46E5;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    box-shadow: 0 4px 12px rgba(79,70,229,0.35);
+    transition: all 0.2s;
+}
+#sidebar-btn:hover {
+    background: #4338CA;
+    transform: scale(1.06);
+    box-shadow: 0 6px 18px rgba(79,70,229,0.45);
+}
+#sidebar-btn div {
+    width: 16px;
+    height: 2px;
+    background: white;
+    border-radius: 2px;
+    transition: all 0.2s;
+}
+</style>
+<button id="sidebar-btn" onclick="toggleSidebar()" title="Abrir / cerrar menú">
+  <div></div>
+  <div></div>
+  <div></div>
+</button>
+<script>
+function toggleSidebar() {
+    const btn = window.parent.document.querySelector('[data-testid="stSidebarCollapsedControl"]');
+    if (btn) btn.click();
+}
+</script>
+''', unsafe_allow_html=True)
+
 # ── SIDEBAR ───────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
