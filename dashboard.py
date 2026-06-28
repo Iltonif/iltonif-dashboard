@@ -19,6 +19,32 @@ st.markdown("""
 
 * { font-family: 'Inter', sans-serif !important; }
 
+/* Ocultar texto feo del botón sidebar nativo */
+[data-testid="stSidebarCollapsedControl"] {
+    background: #4F46E5 !important;
+    border-radius: 9px !important;
+    width: 38px !important;
+    height: 38px !important;
+    top: 12px !important;
+    left: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 4px 12px rgba(79,70,229,0.35) !important;
+    overflow: hidden !important;
+}
+[data-testid="stSidebarCollapsedControl"] * {
+    display: none !important;
+}
+[data-testid="stSidebarCollapsedControl"]::after {
+    content: '≡' !important;
+    display: block !important;
+    color: white !important;
+    font-size: 1.3rem !important;
+    font-weight: 300 !important;
+    line-height: 1 !important;
+}
+
 /* ── FONDO GENERAL ── */
 .main { background: #F8F9FC !important; }
 .block-container { padding: 1.5rem 2rem 2rem !important; max-width: 100% !important; background: #F8F9FC !important; }
