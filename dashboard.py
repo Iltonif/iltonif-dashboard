@@ -135,6 +135,27 @@ header[data-testid="stHeader"] { background: #ffffff !important; border-bottom: 
     border: 1px solid #E4E7F0 !important;
     box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
 }
+/* Tablas en modo claro */
+[data-testid="stDataFrame"] iframe { background: #FFFFFF !important; }
+.stDataFrame { background: #FFFFFF !important; }
+
+/* Fondo homogéneo en todas las secciones */
+[data-testid="stTabsContent"] { background: transparent !important; }
+[data-testid="stVerticalBlock"] { background: transparent !important; }
+[data-testid="stHorizontalBlock"] { background: transparent !important; }
+.element-container { background: transparent !important; }
+[data-testid="column"] { background: transparent !important; }
+
+/* Multiselect modo claro */
+[data-baseweb="tag"] { background: #EEF2FF !important; color: #4338CA !important; }
+[data-baseweb="popover"] { background: #FFFFFF !important; }
+[data-baseweb="select"] { background: #FFFFFF !important; }
+[data-baseweb="menu"] { background: #FFFFFF !important; }
+[data-baseweb="option"]:hover { background: #F5F3FF !important; }
+
+/* Texto general claro */
+p, span, div, label { color: #0F172A; }
+.stMarkdown p { color: #0F172A !important; }
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
