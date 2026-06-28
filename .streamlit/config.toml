@@ -6,8 +6,8 @@ secondaryBackgroundColor = "#FFFFFF"
 textColor = "#0F172A"
 font = "sans serif"
 
-[client]
-showSidebarNavigation = false
+[server]
+enableCORS = false
 
 [client]
 showSidebarNavigation = false
