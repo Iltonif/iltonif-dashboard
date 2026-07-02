@@ -13,6 +13,34 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+
+# ── Autenticación ─────────────────────────────────────────────
+def check_password() -> bool:
+    """Gate de acceso con contraseña definida en st.secrets['password']."""
+
+    def _password_entered():
+        if st.session_state.get("_password") == st.secrets.get("password"):
+            st.session_state["_password_correct"] = True
+            del st.session_state["_password"]
+        else:
+            st.session_state["_password_correct"] = False
+
+    if "password" not in st.secrets:
+        st.error("⚠️ Falta 'password' en st.secrets. Configúrala en .streamlit/secrets.toml (local) o en Settings → Secrets (Streamlit Cloud).")
+        return False
+
+    if st.session_state.get("_password_correct", False):
+        return True
+
+    st.text_input("Contraseña", type="password", key="_password", on_change=_password_entered)
+    if st.session_state.get("_password_correct") is False:
+        st.error("Contraseña incorrecta")
+    return False
+
+
+if not check_password():
+    st.stop()
+
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
