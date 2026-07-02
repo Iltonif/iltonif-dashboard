@@ -41,6 +41,36 @@ def check_password() -> bool:
 if not check_password():
     st.stop()
 
+
+# ── Tracking (PostHog) ────────────────────────────────────────
+import uuid
+
+
+@st.cache_resource
+def _get_posthog():
+    """Cliente PostHog; devuelve None si no hay API key configurada (tracking desactivado)."""
+    api_key = st.secrets.get("posthog_api_key")
+    if not api_key:
+        return None
+    try:
+        from posthog import Posthog
+        return Posthog(project_api_key=api_key, host=st.secrets.get("posthog_host", "https://eu.i.posthog.com"))
+    except Exception:
+        return None
+
+
+def track(event: str, props: dict = None):
+    """Emite un evento a PostHog. No-op silencioso si no hay cliente."""
+    ph = _get_posthog()
+    if ph is None:
+        return
+    if "_distinct_id" not in st.session_state:
+        st.session_state["_distinct_id"] = str(uuid.uuid4())
+    try:
+        ph.capture(distinct_id=st.session_state["_distinct_id"], event=event, properties=props or {})
+    except Exception:
+        pass
+
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -463,7 +493,7 @@ with tab1:
     df_rec["prio"] = df_rec["señal_stock"].map(PRIO).fillna(99)
     df_sorted = df_rec[df_rec["prio"] < 99].sort_values("prio")
 
-    for _, row in df_sorted.iterrows():
+    for idx, row in df_sorted.iterrows():
         ss = row["señal_stock"]
         sp = row["señal_pricing"]
         imp = row["Impacto total €"]
@@ -514,6 +544,29 @@ with tab1:
           </div>
         </div>
         """, unsafe_allow_html=True)
+
+        estado_key = f"rec_estado_{row['Producto']}"
+        estado = st.session_state.get(estado_key)
+        if estado:
+            st.caption(f"✓ Recomendación marcada como {estado}")
+        else:
+            col_ap, col_desc, _sp = st.columns([1, 1, 5])
+            rec_props = {
+                "producto": row["Producto"],
+                "categoria": row["Categoría"],
+                "plataforma": row["Plataforma"],
+                "señal_stock": ss,
+                "señal_pricing": sp,
+                "impacto_estimado_eur": float(imp),
+            }
+            if col_ap.button("✅ Aplicada", key=f"rec_ap_{idx}"):
+                track("recommendation_actioned", {**rec_props, "action": "aplicada"})
+                st.session_state[estado_key] = "aplicada"
+                st.rerun()
+            if col_desc.button("✖ Descartada", key=f"rec_desc_{idx}"):
+                track("recommendation_actioned", {**rec_props, "action": "descartada"})
+                st.session_state[estado_key] = "descartada"
+                st.rerun()
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-header">📊 Distribución de alertas</div>', unsafe_allow_html=True)
