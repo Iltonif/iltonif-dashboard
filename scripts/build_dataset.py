@@ -73,8 +73,12 @@ def snapshot_shopify(fecha: date) -> pd.DataFrame:
             sku = v.get("sku") or f"shopify-{v['id']}"
             pvp_base = float(v.get("compare_at_price") or v["price"])
             precio = float(v["price"])
+            nombre = p["title"] + (f" — {v['title']}" if v.get("title") not in (None, "Default Title") else "")
             filas[sku] = {
                 "sku_id": sku,
+                "nombre_producto": nombre,
+                "categoria": p.get("product_type") or "Sin categoría",
+                "plataforma": "Shopify",
                 "precio_venta": precio,
                 "pvp_base": pvp_base,
                 "stock_disponible": int(v.get("inventory_quantity") or 0),
@@ -159,7 +163,10 @@ def construir_dia(hist: pd.DataFrame, snap: pd.DataFrame, comp: pd.DataFrame,
 
     meta = (hist.sort_values("fecha").groupby("sku_id").last().reset_index()
             [["sku_id", "nombre_producto", "categoria", "plataforma"]])
-    snap = snap.merge(meta, on="sku_id", how="left")
+    snap = snap.merge(meta, on="sku_id", how="left", suffixes=("", "_hist"))
+    for c in ["nombre_producto", "categoria", "plataforma"]:
+        if f"{c}_hist" in snap.columns:
+            snap[c] = snap[c].fillna(snap[f"{c}_hist"])
 
     filas = []
     ts = pd.Timestamp(fecha)
