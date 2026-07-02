@@ -6,446 +6,378 @@ import plotly.graph_objects as go
 from pathlib import Path
 from datetime import datetime, timedelta
 
+from decision_engine import evaluar_sku, clasificar_cobertura
+
 st.set_page_config(
-    page_title="ILTONIF — Pricing & Stock AI",
+    page_title="ILTONIF — Intelligence Platform",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+
+# ── Autenticación ─────────────────────────────────────────────
+def check_password() -> bool:
+    """Gate de acceso con contraseña definida en st.secrets['password']."""
+
+    def _password_entered():
+        if st.session_state.get("_password") == st.secrets.get("password"):
+            st.session_state["_password_correct"] = True
+            del st.session_state["_password"]
+        else:
+            st.session_state["_password_correct"] = False
+
+    if "password" not in st.secrets:
+        st.error("⚠️ Falta 'password' en st.secrets. Configúrala en .streamlit/secrets.toml (local) o en Settings → Secrets (Streamlit Cloud).")
+        return False
+
+    if st.session_state.get("_password_correct", False):
+        return True
+
+    st.text_input("Contraseña", type="password", key="_password", on_change=_password_entered)
+    if st.session_state.get("_password_correct") is False:
+        st.error("Contraseña incorrecta")
+    return False
+
+
+if not check_password():
+    st.stop()
+
+
+# ── Tracking (PostHog) ────────────────────────────────────────
+import uuid
+
+
+@st.cache_resource
+def _get_posthog():
+    """Cliente PostHog; devuelve None si no hay API key configurada (tracking desactivado)."""
+    api_key = st.secrets.get("posthog_api_key")
+    if not api_key:
+        return None
+    try:
+        from posthog import Posthog
+        return Posthog(project_api_key=api_key, host=st.secrets.get("posthog_host", "https://eu.i.posthog.com"))
+    except Exception:
+        return None
+
+
+def track(event: str, props: dict = None):
+    """Emite un evento a PostHog. No-op silencioso si no hay cliente."""
+    ph = _get_posthog()
+    if ph is None:
+        return
+    if "_distinct_id" not in st.session_state:
+        st.session_state["_distinct_id"] = str(uuid.uuid4())
+    try:
+        ph.capture(distinct_id=st.session_state["_distinct_id"], event=event, properties=props or {})
+    except Exception:
+        pass
+
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-* { font-family: 'Inter', sans-serif !important; }
+* { font-family: 'Outfit', sans-serif !important; }
 
-/* Ocultar completamente el botón colapso sidebar */
-[data-testid="stSidebarCollapsedControl"] { display: none !important; }
+/* FONDO */
+.main { background: #020408 !important; }
+.block-container { padding: 0 2rem 2rem !important; max-width: 100% !important; }
 
-/* ── FONDO GENERAL ── */
-.main { background: #F8F9FC !important; }
-.block-container { padding: 1.5rem 2rem 2rem !important; max-width: 100% !important; background: #F8F9FC !important; }
-[data-testid="stAppViewContainer"] { background: #F8F9FC !important; }
-[data-testid="stVerticalBlock"] { background: transparent !important; }
-.stApp { background: #F8F9FC !important; }
-section.main { background: #F8F9FC !important; }
-
-/* ── BARRA SUPERIOR STREAMLIT ── */
-header[data-testid="stHeader"] { background: #ffffff !important; border-bottom: 1px solid #E4E7F0 !important; }
-[data-testid="stSidebarCollapsedControl"] { opacity: 0 !important; pointer-events: none !important; }
-
-/* ── SIDEBAR ── */
+/* SIDEBAR */
 [data-testid="stSidebar"] {
-    background: #FFFFFF !important;
-    border-right: 1px solid #E4E7F0 !important;
-    box-shadow: 2px 0 12px rgba(0,0,0,0.04) !important;
+    background: #030610 !important;
+    border-right: 1px solid rgba(29,106,245,0.2) !important;
 }
-[data-testid="stSidebarContent"] { padding: 24px 20px !important; }
-[data-testid="stSidebar"] label { color: #64748B !important; }
-[data-testid="stSidebar"] .stSelectbox > div > div { color: #0F172A !important; }
+[data-testid="stSidebar"] * { color: #94a3b8 !important; }
+[data-testid="stSidebarContent"] { padding: 20px 16px !important; }
 
-/* ── MÉTRICAS ── */
+/* MÉTRICAS */
 [data-testid="stMetric"] {
-    background: #FFFFFF !important;
-    border: 1px solid #E4E7F0 !important;
-    border-radius: 14px !important;
-    padding: 20px 18px !important;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
-    transition: all 0.2s !important;
+    background: linear-gradient(135deg, #060d1a, #0a1020) !important;
+    border: 1px solid rgba(29,106,245,0.15) !important;
+    border-radius: 16px !important;
+    padding: 24px 20px !important;
+    position: relative !important;
+    overflow: hidden !important;
+    transition: all 0.3s ease !important;
 }
 [data-testid="stMetric"]:hover {
-    border-color: #4F46E5 !important;
-    box-shadow: 0 4px 20px rgba(79,70,229,0.1) !important;
-    transform: translateY(-2px) !important;
+    border-color: rgba(29,106,245,0.5) !important;
+    transform: translateY(-3px) !important;
+    box-shadow: 0 12px 40px rgba(29,106,245,0.15) !important;
 }
 [data-testid="stMetricValue"] {
-    font-size: 2.2rem !important;
-    font-weight: 800 !important;
-    color: #0F172A !important;
-    letter-spacing: -0.02em !important;
+    font-family: 'Bebas Neue', sans-serif !important;
+    font-size: 2.8rem !important;
+    letter-spacing: 0.04em !important;
+    color: #fff !important;
 }
 [data-testid="stMetricLabel"] {
     font-size: 0.68rem !important;
     font-weight: 600 !important;
-    letter-spacing: 0.1em !important;
+    letter-spacing: 0.15em !important;
     text-transform: uppercase !important;
-    color: #94A3B8 !important;
+    color: #475569 !important;
 }
-[data-testid="stMetricDelta"] { font-size: 0.78rem !important; font-weight: 600 !important; }
+[data-testid="stMetricDelta"] { font-size: 0.75rem !important; }
 
-/* ── TABS ── */
+/* TABS */
 .stTabs [data-baseweb="tab-list"] {
-    background: #FFFFFF !important;
+    background: #060d1a !important;
     border-radius: 12px !important;
-    padding: 4px !important;
-    gap: 2px !important;
-    border: 1px solid #E4E7F0 !important;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+    padding: 5px !important;
+    gap: 4px !important;
+    border: 1px solid rgba(29,106,245,0.15) !important;
 }
 .stTabs [data-baseweb="tab"] {
     background: transparent !important;
-    color: #94A3B8 !important;
-    border-radius: 9px !important;
+    color: #475569 !important;
+    border-radius: 8px !important;
     font-weight: 600 !important;
-    font-size: 0.78rem !important;
-    letter-spacing: 0.06em !important;
+    font-size: 0.82rem !important;
+    letter-spacing: 0.08em !important;
     text-transform: uppercase !important;
     padding: 10px 20px !important;
     transition: all 0.2s !important;
 }
 .stTabs [aria-selected="true"] {
-    background: #4F46E5 !important;
+    background: linear-gradient(135deg, #1d6af5, #1d4ed8) !important;
     color: white !important;
-    box-shadow: 0 4px 12px rgba(79,70,229,0.3) !important;
+    box-shadow: 0 4px 16px rgba(29,106,245,0.4) !important;
 }
 
-/* ── SELECTBOX / INPUTS ── */
-.stSelectbox > div > div, .stMultiSelect > div > div {
-    background: #FFFFFF !important;
-    border: 1px solid #E4E7F0 !important;
+/* SELECTBOX / INPUTS */
+.stSelectbox > div > div {
+    background: #060d1a !important;
+    border: 1px solid rgba(29,106,245,0.2) !important;
     border-radius: 10px !important;
-    color: #0F172A !important;
+    color: #e2e8f0 !important;
 }
 .stDateInput > div > div {
-    background: #FFFFFF !important;
-    border: 1px solid #E4E7F0 !important;
+    background: #060d1a !important;
+    border: 1px solid rgba(29,106,245,0.2) !important;
     border-radius: 10px !important;
 }
 
-/* ── BOTÓN ── */
+/* BOTONES */
 .stButton > button {
-    background: #4F46E5 !important;
+    background: linear-gradient(135deg, #1d6af5, #1d4ed8) !important;
     color: white !important;
     border: none !important;
     border-radius: 10px !important;
     font-weight: 700 !important;
-    font-size: 0.78rem !important;
-    letter-spacing: 0.06em !important;
+    letter-spacing: 0.08em !important;
     text-transform: uppercase !important;
-    transition: all 0.2s !important;
-    box-shadow: 0 4px 12px rgba(79,70,229,0.25) !important;
+    font-size: 0.78rem !important;
+    transition: all 0.3s !important;
+    box-shadow: 0 0 20px rgba(29,106,245,0.3) !important;
 }
 .stButton > button:hover {
-    background: #4338CA !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 6px 20px rgba(79,70,229,0.35) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 30px rgba(29,106,245,0.5) !important;
 }
 
-/* ── DATAFRAME ── */
-[data-testid="stDataFrame"] {
-    border-radius: 12px !important;
-    overflow: hidden !important;
-    border: 1px solid #E4E7F0 !important;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
-}
-/* Tablas en modo claro */
-[data-testid="stDataFrame"] iframe { background: #FFFFFF !important; }
-.stDataFrame { background: #FFFFFF !important; }
+/* DATAFRAME */
+[data-testid="stDataFrame"] { border-radius: 12px !important; overflow: hidden !important; }
 
-/* Fondo homogéneo en todas las secciones */
-[data-testid="stTabsContent"] { background: transparent !important; }
-[data-testid="stVerticalBlock"] { background: transparent !important; }
-[data-testid="stHorizontalBlock"] { background: transparent !important; }
-.element-container { background: transparent !important; }
-[data-testid="column"] { background: transparent !important; }
-
-/* Multiselect modo claro */
-[data-baseweb="tag"] { background: #EEF2FF !important; color: #4338CA !important; }
-[data-baseweb="popover"] { background: #FFFFFF !important; }
-[data-baseweb="select"] { background: #FFFFFF !important; }
-[data-baseweb="menu"] { background: #FFFFFF !important; }
-[data-baseweb="option"]:hover { background: #F5F3FF !important; }
-
-/* Texto general claro */
-p, span, div, label { color: #0F172A; }
-.stMarkdown p { color: #0F172A !important; }
-
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: #F8F9FC; }
-::-webkit-scrollbar-thumb { background: #C7D2FE; border-radius: 4px; }
-
-/* ── ALERT CARDS ── */
-.alert-card {
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin: 8px 0;
-    transition: all 0.2s;
-    border: 1px solid;
-    background: #FFFFFF;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+/* CARDS DE ALERTAS */
+.alert-critico {
+    background: linear-gradient(135deg, rgba(244,63,94,0.08), rgba(244,63,94,0.03));
+    border: 1px solid rgba(244,63,94,0.25);
+    border-left: 4px solid #f43f5e;
+    border-radius: 14px;
+    padding: 18px 24px;
+    margin: 10px 0;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
 }
-.alert-card:hover {
-    transform: translateX(3px);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-}
-.alert-critical {
-    border-left: 4px solid #EF4444;
-    border-color: #FEE2E2;
-    background: linear-gradient(135deg, #FFF5F5, #FFFFFF);
-}
-.alert-warning {
-    border-left: 4px solid #F59E0B;
-    border-color: #FEF3C7;
-    background: linear-gradient(135deg, #FFFBEB, #FFFFFF);
-}
-.alert-success {
-    border-left: 4px solid #10B981;
-    border-color: #D1FAE5;
-    background: linear-gradient(135deg, #F0FDF9, #FFFFFF);
-}
-.alert-info {
-    border-left: 4px solid #4F46E5;
-    border-color: #E0E7FF;
-    background: linear-gradient(135deg, #F5F3FF, #FFFFFF);
-}
-
-/* ── BADGES ── */
-.badge {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 100px;
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-right: 5px;
-}
-.badge-red    { background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; }
-.badge-amber  { background: #FEF3C7; color: #D97706; border: 1px solid #FDE68A; }
-.badge-green  { background: #D1FAE5; color: #059669; border: 1px solid #A7F3D0; }
-.badge-indigo { background: #E0E7FF; color: #4338CA; border: 1px solid #C7D2FE; }
-
-.impact-num {
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #4F46E5;
-}
-
-.section-title {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #94A3B8;
-    margin: 24px 0 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.section-title::after {
+.alert-critico::before {
     content: '';
-    flex: 1;
-    height: 1px;
-    background: #E4E7F0;
+    position: absolute;
+    top: 0; right: 0;
+    width: 80px; height: 80px;
+    background: radial-gradient(circle, rgba(244,63,94,0.08), transparent);
+    border-radius: 50%;
+}
+.alert-critico:hover { border-color: rgba(244,63,94,0.5); background: rgba(244,63,94,0.08); }
+
+.alert-warning {
+    background: linear-gradient(135deg, rgba(251,146,60,0.08), rgba(251,146,60,0.03));
+    border: 1px solid rgba(251,146,60,0.25);
+    border-left: 4px solid #fb923c;
+    border-radius: 14px;
+    padding: 18px 24px;
+    margin: 10px 0;
+    transition: all 0.3s;
+}
+.alert-warning:hover { border-color: rgba(251,146,60,0.5); }
+
+.alert-info {
+    background: linear-gradient(135deg, rgba(29,106,245,0.08), rgba(29,106,245,0.03));
+    border: 1px solid rgba(29,106,245,0.25);
+    border-left: 4px solid #1d6af5;
+    border-radius: 14px;
+    padding: 18px 24px;
+    margin: 10px 0;
+    transition: all 0.3s;
+}
+.alert-ok {
+    background: linear-gradient(135deg, rgba(74,222,128,0.08), rgba(74,222,128,0.03));
+    border: 1px solid rgba(74,222,128,0.25);
+    border-left: 4px solid #4ade80;
+    border-radius: 14px;
+    padding: 18px 24px;
+    margin: 10px 0;
+    transition: all 0.3s;
 }
 
-.divider { height: 1px; background: #E4E7F0; margin: 20px 0; }
-
-/* ── STAT MINI ── */
-.stat-mini {
-    background: #FFFFFF;
-    border: 1px solid #E4E7F0;
-    border-radius: 10px;
-    padding: 14px 16px;
-    text-align: center;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    margin-bottom: 8px;
-}
-.stat-mini-val {
-    font-size: 1.3rem;
-    font-weight: 800;
-    color: #0F172A;
-    display: block;
-    letter-spacing: -0.01em;
-}
-.stat-mini-lbl {
-    font-size: 0.62rem;
-    font-weight: 600;
+.tag {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 100px;
+    font-size: 0.65rem;
+    font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #94A3B8;
-    margin-top: 3px;
-    display: block;
+    margin-right: 8px;
 }
+.tag-red   { background: rgba(244,63,94,0.15); color: #f43f5e; border: 1px solid rgba(244,63,94,0.3); }
+.tag-amber { background: rgba(251,146,60,0.15); color: #fb923c; border: 1px solid rgba(251,146,60,0.3); }
+.tag-blue  { background: rgba(29,106,245,0.15); color: #60a5fa; border: 1px solid rgba(29,106,245,0.3); }
+.tag-green { background: rgba(74,222,128,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); }
+
+.impact-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1d6af5;
+    letter-spacing: 0.05em;
+}
+
+.section-header {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: 0.06em;
+    color: #fff;
+    margin: 24px 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.kpi-banner {
+    background: linear-gradient(135deg, #060d1a, #0a1428);
+    border: 1px solid rgba(29,106,245,0.2);
+    border-radius: 20px;
+    padding: 24px 32px;
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}
+
+.divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(29,106,245,0.3), transparent);
+    margin: 28px 0;
+}
+
+/* HEADER */
+.main-header {
+    background: linear-gradient(135deg, #030610, #060d1a);
+    border-bottom: 1px solid rgba(29,106,245,0.2);
+    padding: 20px 32px;
+    margin: -1rem -2rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #020408; }
+::-webkit-scrollbar-thumb { background: rgba(29,106,245,0.4); border-radius: 4px; }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ── DATOS ─────────────────────────────────────────────────────
+# ── DATOS ──────────────────────────────────────────────────────
 @st.cache_data
 def cargar_datos():
     base = Path(__file__).parent / "data"
     df = pd.read_csv(base / "iltonif_dataset_modelable_v3.csv", parse_dates=["fecha"])
     return df
 
+# Mapeo de señales del motor (sin acentos, testable) a etiquetas de UI
+SENAL_LABEL = {"CRITICO": "CRÍTICO", "REPOSICION": "REPOSICIÓN"}
+
+
 @st.cache_data
 def generar_recomendaciones(df):
+    """Genera la tabla de recomendaciones delegando la lógica en decision_engine."""
     ultimo = df.sort_values("fecha").groupby("sku_id").last().reset_index()
     recs = []
     for _, row in ultimo.iterrows():
-        pvp      = row["precio_venta"]
-        coste    = row["coste_unitario"]
-        comp_min = row["precio_comp_min"]
-        comp_avg = row["precio_comp_avg"]
-        stock    = row["stock_disponible"]
-        media_7d = max(row["ventas_media_7d"], 0.1)
-        cobertura = stock / media_7d
-
-        if cobertura < 7:
-            ss = "CRÍTICO"; as_ = f"Repón {int(media_7d*30)} uds — rotura en {int(cobertura)} días"
-            imp_s = round(media_7d * pvp * max(0, 7 - cobertura), 0)
-        elif cobertura < 15:
-            ss = "REPOSICIÓN"; as_ = f"Repón {int(media_7d*30)} uds esta semana"
-            imp_s = round(media_7d * pvp * 3, 0)
-        elif cobertura > 45:
-            ss = "EXCESO"; as_ = f"{int(cobertura)} días cobertura — considera promoción"; imp_s = 0
-        else:
-            ss = "OK"; as_ = "Niveles óptimos"; imp_s = 0
-
-        dif = pvp - comp_min
-        precio_min_viable = coste / 0.80
-        if dif > comp_min * 0.10:
-            bajada = min((dif / pvp) * 0.6, 0.20)
-            pr = max(round(pvp * (1 - bajada), 2), precio_min_viable)
-            sp = "PRECIO ALTO"; ap = f"Bajar {bajada*100:.1f}% → {pr:.2f}€"
-            imp_p = round(media_7d * bajada * 1.5 * (pr - coste), 0)
-        elif pvp / comp_avg < 0.92:
-            pr = round(pvp * 1.06, 2)
-            sp = "SUBIR PRECIO"; ap = f"Subir 6% → {pr:.2f}€"
-            imp_p = round(media_7d * 0.06 * pvp, 0)
-        elif row.get("alerta_bajada_competidor", 0) == 1:
-            sp = "ALERTA COMP."; ap = "Competidor bajó >5% esta semana"; pr = pvp; imp_p = 0
-        else:
-            sp = "OK"; ap = "Precio competitivo"; pr = pvp; imp_p = 0
-
+        r = evaluar_sku(row.to_dict())
         recs.append({
             "SKU": row["sku_id"], "Producto": row["nombre_producto"],
             "Categoría": row["categoria"], "Plataforma": row["plataforma"],
-            "señal_stock": ss, "accion_stock": as_,
-            "señal_pricing": sp, "accion_pricing": ap,
-            "Precio actual": round(pvp, 2), "Precio rec.": round(pr, 2),
-            "Comp. mín.": round(comp_min, 2), "Comp. avg": round(comp_avg, 2),
-            "Stock": int(stock), "Cobertura (días)": round(cobertura, 1),
-            "Demanda/día": round(media_7d, 1),
-            "Impacto stock €": imp_s, "Impacto pricing €": imp_p,
-            "Impacto total €": imp_s + imp_p,
+            "señal_stock": SENAL_LABEL.get(r["senal_stock"], r["senal_stock"]),
+            "accion_stock": r["accion_stock"],
+            "señal_pricing": r["senal_pricing"], "accion_pricing": r["accion_pricing"],
+            "Precio actual": round(row["precio_venta"], 2), "Precio rec.": round(r["precio_rec"], 2),
+            "Comp. mín.": round(row["precio_comp_min"], 2), "Comp. avg": round(row["precio_comp_avg"], 2),
+            "Stock": int(row["stock_disponible"]), "Cobertura (días)": r["cobertura_dias"],
+            "Demanda/día": round(max(row["ventas_media_7d"], 0.1), 1),
+            "Impacto stock €": r["impacto_stock"],
+            "Impacto pricing €": r["impacto_pricing"],
+            "Impacto total €": r["impacto_total"],
         })
     return pd.DataFrame(recs)
 
 
-# ── BOTÓN SIDEBAR FLOTANTE ──────────────────────────────────────
-st.markdown('''
-<style>
-[data-testid="stSidebarCollapsedControl"] {
-    visibility: hidden !important;
-    width: 0 !important;
-    height: 0 !important;
-}
-#sidebar-btn {
-    position: fixed;
-    top: 14px;
-    left: 14px;
-    z-index: 9999;
-    width: 38px;
-    height: 38px;
-    background: #4F46E5;
-    border: none;
-    border-radius: 9px;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    box-shadow: 0 4px 12px rgba(79,70,229,0.35);
-    transition: all 0.2s;
-}
-#sidebar-btn:hover {
-    background: #4338CA;
-    transform: scale(1.06);
-    box-shadow: 0 6px 18px rgba(79,70,229,0.45);
-}
-#sidebar-btn div {
-    width: 16px;
-    height: 2px;
-    background: white;
-    border-radius: 2px;
-    transition: all 0.2s;
-}
-</style>
-<button id="sidebar-btn" onclick="toggleSidebar()" title="Abrir / cerrar menú">
-  <div></div>
-  <div></div>
-  <div></div>
-</button>
-<script>
-function toggleSidebar() {
-    const btn = window.parent.document.querySelector('[data-testid="stSidebarCollapsedControl"]');
-    if (btn) btn.click();
-}
-</script>
-''', unsafe_allow_html=True)
-
-# ── SIDEBAR ───────────────────────────────────────────────────
+# ── SIDEBAR ────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("""
-    <div style="padding:4px 0 24px">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
-        <div style="width:38px;height:38px;background:linear-gradient(135deg,#4F46E5,#7C3AED);border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(79,70,229,0.3)">
-          <svg width="22" height="22" viewBox="0 0 44 44" fill="none">
-            <rect x="6" y="30" width="6" height="8" rx="1.5" fill="white" opacity="0.5"/>
-            <rect x="14" y="22" width="6" height="16" rx="1.5" fill="white" opacity="0.75"/>
-            <rect x="22" y="14" width="6" height="24" rx="1.5" fill="white"/>
-            <circle cx="36" cy="8" r="4" fill="#06B6D4"/>
-            <polyline points="9,30 17,22 25,14 36,8" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
-          </svg>
-        </div>
-        <div>
-          <div style="font-size:1.1rem;font-weight:800;color:#0F172A;letter-spacing:-0.01em">ILTONIF</div>
-          <div style="font-size:0.6rem;font-weight:600;letter-spacing:0.15em;color:#94A3B8;text-transform:uppercase">Intelligence Platform</div>
-        </div>
+    st.markdown('''
+    <div style="padding:12px 0 20px">
+      <svg width="40" height="40" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg" style="display:block">
+        <rect width="44" height="44" rx="10" fill="#1d6af5"/>
+        <circle cx="16" cy="13" r="6" fill="white"/>
+        <rect x="11" y="18" width="8" height="22" rx="4" fill="white" transform="rotate(-22 15 29)"/>
+      </svg>
+      <div style="margin-top:10px">
+        <div style="font-family:\'Bebas Neue\',sans-serif;font-size:1.4rem;letter-spacing:0.12em;color:#fff">ILTONIF</div>
+        <div style="font-size:0.65rem;letter-spacing:0.2em;color:#1d6af5;text-transform:uppercase;margin-top:2px">Intelligence Platform</div>
       </div>
     </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div style="height:1px;background:#E4E7F0;margin-bottom:20px"></div>', unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
+    st.markdown("---")
 
     df_raw = cargar_datos()
+    st.markdown('<div style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#475569;margin-bottom:8px">Filtros</div>', unsafe_allow_html=True)
 
-    st.markdown('<div style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Filtros</div>', unsafe_allow_html=True)
     categorias = ["Todas"] + sorted(df_raw["categoria"].unique().tolist())
     cat_sel = st.selectbox("Categoría", categorias, label_visibility="collapsed")
     plataformas = ["Todas"] + sorted(df_raw["plataforma"].unique().tolist())
     plat_sel = st.selectbox("Plataforma", plataformas, label_visibility="collapsed")
 
-    st.markdown('<div style="height:1px;background:#E4E7F0;margin:16px 0"></div>', unsafe_allow_html=True)
-    st.markdown('<div style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Período</div>', unsafe_allow_html=True)
+    st.markdown("---")
     fecha_max = df_raw["fecha"].max().date()
     fecha_min = df_raw["fecha"].min().date()
-    rango = st.date_input("Rango", value=(fecha_max - timedelta(days=90), fecha_max),
-        min_value=fecha_min, max_value=fecha_max, label_visibility="collapsed")
+    rango = st.date_input("Rango histórico",
+        value=(fecha_max - timedelta(days=90), fecha_max),
+        min_value=fecha_min, max_value=fecha_max)
 
-    st.markdown('<div style="height:1px;background:#E4E7F0;margin:16px 0"></div>', unsafe_allow_html=True)
-
+    st.markdown("---")
+    st.markdown('<div style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#475569;margin-bottom:8px">Pipeline</div>', unsafe_allow_html=True)
     if st.button("⟳  Actualizar datos", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
-
-    st.markdown(f"""
-    <div style="margin-top:16px;padding:14px;background:#F8F9FC;border-radius:10px;border:1px solid #E4E7F0">
-      <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Estado del sistema</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="width:7px;height:7px;border-radius:50%;background:#10B981;box-shadow:0 0 6px rgba(16,185,129,0.5)"></div>
-        <div style="font-size:0.75rem;font-weight:500;color:#0F172A">Pipeline activo</div>
-      </div>
-      <div style="font-size:0.68rem;color:#94A3B8;font-family:'JetBrains Mono',monospace">{datetime.now().strftime('%d/%m/%Y  %H:%M')}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f'<div style="font-size:0.68rem;color:#334155;margin-top:8px">Último update: {datetime.now().strftime("%d/%m/%Y %H:%M")}</div>', unsafe_allow_html=True)
 
 
-# ── FILTRAR ───────────────────────────────────────────────────
+# ── FILTRAR ────────────────────────────────────────────────────
 df = df_raw.copy()
 if cat_sel  != "Todas": df = df[df["categoria"]  == cat_sel]
 if plat_sel != "Todas": df = df[df["plataforma"] == plat_sel]
@@ -453,437 +385,343 @@ if len(rango) == 2:
     df = df[(df["fecha"] >= pd.Timestamp(rango[0])) & (df["fecha"] <= pd.Timestamp(rango[1]))]
 
 df_rec = generar_recomendaciones(df_raw)
-if cat_sel  != "Todas": df_rec = df_rec[df_rec["Categoría"] == cat_sel]
+if cat_sel  != "Todas": df_rec = df_rec[df_rec["Categoría"]  == cat_sel]
 if plat_sel != "Todas": df_rec = df_rec[df_rec["Plataforma"] == plat_sel]
 
 sku_nombres = {r["sku_id"]: r["nombre_producto"]
                for _, r in df[["sku_id","nombre_producto"]].drop_duplicates().iterrows()}
 
 
-# ── HEADER ────────────────────────────────────────────────────
-today = datetime.now().strftime("%d %b %Y")
-st.markdown(f"""
+# ── HEADER PRINCIPAL ───────────────────────────────────────────
+st.markdown('''
 <div style="
-    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #4F46E5 100%);
-    border-radius: 20px;
-    padding: 32px 40px;
-    margin-bottom: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-shadow: 0 8px 32px rgba(79,70,229,0.25);
-    position: relative;
-    overflow: hidden;
+  background:linear-gradient(135deg,#030610,#060d1a);
+  border-bottom:1px solid rgba(29,106,245,0.2);
+  padding:24px 0 20px;
+  margin-bottom:32px;
 ">
-  <!-- Círculos decorativos fondo -->
-  <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,0.05)"></div>
-  <div style="position:absolute;bottom:-60px;right:120px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,0.04)"></div>
-  <div style="position:absolute;top:10px;right:200px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.04)"></div>
-
-  <!-- Logo + Nombre -->
-  <div style="display:flex;align-items:center;gap:20px;position:relative;z-index:1">
-    <div style="
-        width:56px;height:56px;
-        background:rgba(255,255,255,0.15);
-        border-radius:16px;
-        display:flex;align-items:center;justify-content:center;
-        border:1px solid rgba(255,255,255,0.2);
-        box-shadow:0 4px 16px rgba(0,0,0,0.15);
-    ">
-      <svg width="32" height="32" viewBox="0 0 44 44" fill="none">
-            <rect x="6" y="30" width="6" height="8" rx="1.5" fill="white" opacity="0.5"/>
-            <rect x="14" y="22" width="6" height="16" rx="1.5" fill="white" opacity="0.75"/>
-            <rect x="22" y="14" width="6" height="24" rx="1.5" fill="white"/>
-            <circle cx="36" cy="8" r="4" fill="#06B6D4"/>
-            <polyline points="9,30 17,22 25,14 36,8" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
-          </svg>
-    </div>
+  <div style="display:flex;align-items:center;gap:20px">
+    <svg width="56" height="56" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+      <rect width="44" height="44" rx="10" fill="#1d6af5"/>
+      <circle cx="16" cy="13" r="6" fill="white"/>
+      <rect x="11" y="18" width="8" height="22" rx="4" fill="white" transform="rotate(-22 15 29)"/>
+    </svg>
     <div>
-      <div style="
-          font-size:1.8rem;
-          font-weight:900;
-          color:white;
-          letter-spacing:-0.01em;
-          line-height:1;
-      ">ILTONIF</div>
-      <div style="
-          font-size:0.72rem;
-          font-weight:600;
-          letter-spacing:0.2em;
-          text-transform:uppercase;
-          color:rgba(255,255,255,0.7);
-          margin-top:4px;
-      ">Pricing & Stock AI</div>
+      <div style="font-family:\'Bebas Neue\',sans-serif;font-size:2.6rem;letter-spacing:0.06em;line-height:1;color:#fff">ILTONIF</div>
+      <div style="font-size:0.75rem;letter-spacing:0.25em;color:#1d6af5;text-transform:uppercase;margin-top:4px">Intelligence Platform · Pricing & Stock AI</div>
     </div>
-  </div>
-
-  <!-- Slogan centro -->
-  <div style="text-align:center;position:relative;z-index:1">
-    <div style="
-        font-size:1rem;
-        font-weight:600;
-        color:rgba(255,255,255,0.95);
-        font-style:italic;
-        letter-spacing:0.01em;
-    ">"Predice. Decide. Crece."</div>
-    <div style="
-        font-size:0.72rem;
-        color:rgba(255,255,255,0.55);
-        margin-top:4px;
-        letter-spacing:0.08em;
-        text-transform:uppercase;
-    ">Pricing & Stock AI para e-commerce</div>
-  </div>
-
-  <!-- Fecha + estado -->
-  <div style="text-align:right;position:relative;z-index:1">
-    <div style="
-        display:inline-flex;align-items:center;gap:8px;
-        background:rgba(255,255,255,0.12);
-        border:1px solid rgba(255,255,255,0.15);
-        border-radius:100px;
-        padding:6px 14px;
-        margin-bottom:8px;
-    ">
-      <div style="width:7px;height:7px;border-radius:50%;background:#4ADE80;box-shadow:0 0 8px rgba(74,222,128,0.6)"></div>
-      <div style="font-size:0.72rem;font-weight:600;color:rgba(255,255,255,0.9)">Pipeline activo</div>
-    </div>
-    <div style="font-size:0.75rem;color:rgba(255,255,255,0.5);font-family:'JetBrains Mono',monospace">{today}</div>
   </div>
 </div>
-""", unsafe_allow_html=True)
+''', unsafe_allow_html=True)
 
 
-# ── KPIs ──────────────────────────────────────────────────────
+# ── KPIs ───────────────────────────────────────────────────────
 criticos    = (df_rec["señal_stock"]   == "CRÍTICO").sum()
 reposicion  = (df_rec["señal_stock"]   == "REPOSICIÓN").sum()
 precio_alto = (df_rec["señal_pricing"] == "PRECIO ALTO").sum()
 oportunidad = (df_rec["señal_pricing"] == "SUBIR PRECIO").sum()
 impacto     = df_rec["Impacto total €"].sum()
 
-c1, c2, c3, c4, c5 = st.columns(5)
-with c1: st.metric("🔴  Stock Crítico",  f"{criticos} SKUs",    delta="Acción urgente", delta_color="inverse")
-with c2: st.metric("🟡  Reposición",     f"{reposicion} SKUs",  delta="Esta semana")
-with c3: st.metric("💸  Precio Alto",    f"{precio_alto} SKUs", delta="vs competencia", delta_color="inverse")
-with c4: st.metric("📈  Oportunidad",    f"{oportunidad} SKUs", delta="Subida posible")
-with c5: st.metric("💶  Impacto Total",  f"{impacto:,.0f}€",    delta="Estimado hoy")
+col1, col2, col3, col4, col5 = st.columns(5)
+with col1: st.metric("🔴  STOCK CRÍTICO",  f"{criticos} SKUs",    delta=f"−{criticos} requieren acción", delta_color="inverse")
+with col2: st.metric("🟠  REPOSICIÓN",     f"{reposicion} SKUs",  delta="↑ Esta semana")
+with col3: st.metric("💰  PRECIO ALTO",    f"{precio_alto} SKUs", delta="↑ vs competencia", delta_color="inverse")
+with col4: st.metric("📈  OPORTUNIDAD",    f"{oportunidad} SKUs", delta="↑ Subida posible")
+with col5: st.metric("💶  IMPACTO TOTAL",  f"{impacto:,.0f}€",    delta="↑ Estimado hoy")
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 
-# ── TABS ──────────────────────────────────────────────────────
+# ── TABS ───────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4 = st.tabs([
-    "🚨  Alertas del día",
-    "📊  Demanda por SKU",
-    "💰  Pricing",
-    "📦  Stock"
+    "🚨  ALERTAS DEL DÍA",
+    "📊  DEMANDA POR SKU",
+    "💰  PRICING",
+    "📦  STOCK"
 ])
 
 
-# ══ TAB 1 — ALERTAS ══════════════════════════════════════════
+# ══ TAB 1: ALERTAS ════════════════════════════════════════════
 with tab1:
-    col_left, col_right = st.columns([2, 1], gap="large")
+    st.markdown('<div class="section-header">⚡ Recomendaciones accionables de hoy</div>', unsafe_allow_html=True)
 
-    with col_left:
-        st.markdown('<div class="section-title">Recomendaciones accionables</div>', unsafe_allow_html=True)
+    PRIO = {"CRÍTICO":0,"PRECIO ALTO":1,"REPOSICIÓN":2,"SUBIR PRECIO":3,"ALERTA COMP.":4,"EXCESO":5,"OK":99}
+    df_rec["prio"] = df_rec["señal_stock"].map(PRIO).fillna(99)
+    df_sorted = df_rec[df_rec["prio"] < 99].sort_values("prio")
 
-        PRIO = {"CRÍTICO":0,"PRECIO ALTO":1,"REPOSICIÓN":2,"SUBIR PRECIO":3,"ALERTA COMP.":4,"EXCESO":5,"OK":99}
-        df_rec["_prio"] = df_rec["señal_stock"].map(PRIO).fillna(99)
-        df_sorted = df_rec[df_rec["_prio"] < 99].sort_values(["_prio","Impacto total €"], ascending=[True,False])
+    for idx, row in df_sorted.iterrows():
+        ss = row["señal_stock"]
+        sp = row["señal_pricing"]
+        imp = row["Impacto total €"]
 
-        for _, row in df_sorted.iterrows():
-            ss = row["señal_stock"]
-            sp = row["señal_pricing"]
-            imp = row["Impacto total €"]
+        if ss == "CRÍTICO":
+            css = "alert-critico"
+            badge_s = '<span class="tag tag-red">⚠ CRÍTICO</span>'
+        elif ss == "REPOSICIÓN":
+            css = "alert-warning"
+            badge_s = '<span class="tag tag-amber">↻ REPOSICIÓN</span>'
+        elif ss == "EXCESO":
+            css = "alert-info"
+            badge_s = '<span class="tag tag-blue">↓ EXCESO</span>'
+        else:
+            css = "alert-ok"
+            badge_s = '<span class="tag tag-green">✓ OK</span>'
 
-            if ss == "CRÍTICO":
-                css = "alert-critical"
-                badge_s = '<span class="badge badge-red">⬤ CRÍTICO</span>'
-            elif ss == "REPOSICIÓN":
-                css = "alert-warning"
-                badge_s = '<span class="badge badge-amber">↻ REPOSICIÓN</span>'
-            elif ss == "EXCESO":
-                css = "alert-info"
-                badge_s = '<span class="badge badge-indigo">↓ EXCESO</span>'
-            else:
-                css = "alert-success"
-                badge_s = '<span class="badge badge-green">✓ OK</span>'
+        if sp == "PRECIO ALTO":
+            badge_p = '<span class="tag tag-red">↓ PRECIO ALTO</span>'
+        elif sp == "SUBIR PRECIO":
+            badge_p = '<span class="tag tag-green">↑ SUBIR PRECIO</span>'
+        elif sp == "ALERTA COMP.":
+            badge_p = '<span class="tag tag-amber">⚡ ALERTA COMP.</span>'
+        else:
+            badge_p = '<span class="tag tag-blue">✓ PRECIO OK</span>'
 
-            if sp == "PRECIO ALTO":
-                badge_p = '<span class="badge badge-red">↓ PRECIO ALTO</span>'
-            elif sp == "SUBIR PRECIO":
-                badge_p = '<span class="badge badge-green">↑ SUBIR PRECIO</span>'
-            elif sp == "ALERTA COMP.":
-                badge_p = '<span class="badge badge-amber">⚡ ALERTA COMP.</span>'
-            else:
-                badge_p = '<span class="badge badge-indigo">✓ PRECIO OK</span>'
+        impacto_html = f'<span class="impact-val">+{imp:,.0f}€ impacto estimado</span>' if imp > 0 else ""
 
-            imp_html = f'<span class="impact-num">+{imp:,.0f}€</span>' if imp > 0 else ""
-
-            st.markdown(f"""
-            <div class="alert-card {css}">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-                <div>
-                  <div style="font-weight:700;font-size:0.92rem;color:#0F172A;margin-bottom:2px">{row['Producto']}</div>
-                  <div style="font-size:0.72rem;color:#94A3B8">{row['Categoría']} &nbsp;·&nbsp; {row['Plataforma']}</div>
-                </div>
-                <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">{badge_s}{badge_p}</div>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
-                <div style="font-size:0.78rem;color:#64748B">📦 {row['accion_stock']}</div>
-                <div style="font-size:0.78rem;color:#64748B">💰 {row['accion_pricing']}</div>
-              </div>
-              <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;border-top:1px solid rgba(0,0,0,0.04);padding-top:8px">
-                <span style="font-size:0.72rem;color:#94A3B8">Precio: <b style="color:#0F172A">{row['Precio actual']}€</b></span>
-                <span style="font-size:0.72rem;color:#94A3B8">Comp.mín: <b style="color:#0F172A">{row['Comp. mín.']}€</b></span>
-                <span style="font-size:0.72rem;color:#94A3B8">Stock: <b style="color:#0F172A">{row['Stock']} uds</b></span>
-                <span style="font-size:0.72rem;color:#94A3B8">Cobertura: <b style="color:#0F172A">{row['Cobertura (días)']} días</b></span>
-                {('<span>' + imp_html + ' impacto estimado</span>') if imp_html else ''}
-              </div>
+        st.markdown(f"""
+        <div class="{css}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+            <div>
+              <span style="font-weight:700;font-size:1.05rem;color:#f0f9ff">{row['Producto']}</span>
+              <span style="color:#334155;font-size:0.78rem;margin-left:10px">{row['Categoría']} · {row['Plataforma']}</span>
             </div>
-            """, unsafe_allow_html=True)
+            <div>{badge_s}{badge_p}</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+            <div style="font-size:0.82rem;color:#64748b">📦 {row['accion_stock']}</div>
+            <div style="font-size:0.82rem;color:#64748b">💰 {row['accion_pricing']}</div>
+          </div>
+          <div style="display:flex;gap:20px;font-size:0.75rem;color:#334155;flex-wrap:wrap">
+            <span>Precio: <b style="color:#cbd5e1">{row['Precio actual']}€</b></span>
+            <span>Comp.mín: <b style="color:#cbd5e1">{row['Comp. mín.']}€</b></span>
+            <span>Stock: <b style="color:#cbd5e1">{row['Stock']} uds</b></span>
+            <span>Cobertura: <b style="color:#cbd5e1">{row['Cobertura (días)']} días</b></span>
+            {'<span>' + impacto_html + '</span>' if impacto_html else ''}
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    with col_right:
-        st.markdown('<div class="section-title">Resumen ejecutivo</div>', unsafe_allow_html=True)
+        estado_key = f"rec_estado_{row['Producto']}"
+        estado = st.session_state.get(estado_key)
+        if estado:
+            st.caption(f"✓ Recomendación marcada como {estado}")
+        else:
+            col_ap, col_desc, _sp = st.columns([1, 1, 5])
+            rec_props = {
+                "producto": row["Producto"],
+                "categoria": row["Categoría"],
+                "plataforma": row["Plataforma"],
+                "señal_stock": ss,
+                "señal_pricing": sp,
+                "impacto_estimado_eur": float(imp),
+            }
+            if col_ap.button("✅ Aplicada", key=f"rec_ap_{idx}"):
+                track("recommendation_actioned", {**rec_props, "action": "aplicada"})
+                st.session_state[estado_key] = "aplicada"
+                st.rerun()
+            if col_desc.button("✖ Descartada", key=f"rec_desc_{idx}"):
+                track("recommendation_actioned", {**rec_props, "action": "descartada"})
+                st.session_state[estado_key] = "descartada"
+                st.rerun()
 
-        total_skus     = len(df_rec)
-        skus_ok_stock  = (df_rec["señal_stock"]   == "OK").sum()
-        skus_ok_price  = (df_rec["señal_pricing"]  == "OK").sum()
-        cobertura_avg  = df_rec["Cobertura (días)"].mean()
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📊 Distribución de alertas</div>', unsafe_allow_html=True)
 
-        for label, val, color in [
-            ("SKUs analizados",     total_skus,                   "#4F46E5"),
-            ("Stock saludable",     f"{skus_ok_stock}/{total_skus}", "#10B981"),
-            ("Precio competitivo",  f"{skus_ok_price}/{total_skus}", "#10B981"),
-            ("Cobertura media",     f"{cobertura_avg:.0f} días",     "#F59E0B"),
-        ]:
-            st.markdown(f"""
-            <div class="stat-mini">
-              <span class="stat-mini-val" style="color:{color}">{val}</span>
-              <span class="stat-mini-lbl">{label}</span>
-            </div>
-            """, unsafe_allow_html=True)
+    col_a, col_b = st.columns(2)
+    COLORS_S = {"CRÍTICO":"#f43f5e","REPOSICIÓN":"#fb923c","EXCESO":"#3b82f6","OK":"#4ade80"}
+    COLORS_P = {"PRECIO ALTO":"#f43f5e","SUBIR PRECIO":"#4ade80","ALERTA COMP.":"#fb923c","OK":"#3b82f6"}
 
-        st.markdown('<div class="section-title" style="margin-top:20px">Distribución stock</div>', unsafe_allow_html=True)
-        COLORS_S = {"CRÍTICO":"#EF4444","REPOSICIÓN":"#F59E0B","EXCESO":"#6366F1","OK":"#10B981"}
+    with col_a:
         cs = df_rec["señal_stock"].value_counts().reset_index()
         cs.columns = ["Señal","N"]
-        fig_d1 = px.pie(cs, values="N", names="Señal", hole=0.68,
-                        color="Señal", color_discrete_map=COLORS_S)
-        fig_d1.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            font_color="#64748B", height=210, margin=dict(t=0,b=0,l=0,r=0),
-            legend=dict(font=dict(color="#64748B",size=11), orientation="h", y=-0.1))
-        fig_d1.update_traces(textfont_color="white", textfont_size=11)
-        st.plotly_chart(fig_d1, use_container_width=True)
+        fig = px.pie(cs, values="N", names="Señal", hole=0.65,
+                     color="Señal", color_discrete_map=COLORS_S, title="Estado de stock")
+        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                          font_color="#64748b", height=280, title_font_color="#e2e8f0",
+                          title_font_size=14,
+                          legend=dict(font=dict(color="#64748b",size=11)))
+        fig.update_traces(textfont_color="white")
+        st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown('<div class="section-title">Distribución pricing</div>', unsafe_allow_html=True)
-        COLORS_P = {"PRECIO ALTO":"#EF4444","SUBIR PRECIO":"#10B981","ALERTA COMP.":"#F59E0B","OK":"#6366F1"}
+    with col_b:
         cp = df_rec["señal_pricing"].value_counts().reset_index()
         cp.columns = ["Señal","N"]
-        fig_d2 = px.pie(cp, values="N", names="Señal", hole=0.68,
-                        color="Señal", color_discrete_map=COLORS_P)
-        fig_d2.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            font_color="#64748B", height=210, margin=dict(t=0,b=0,l=0,r=0),
-            legend=dict(font=dict(color="#64748B",size=11), orientation="h", y=-0.1))
-        fig_d2.update_traces(textfont_color="white", textfont_size=11)
-        st.plotly_chart(fig_d2, use_container_width=True)
+        fig2 = px.pie(cp, values="N", names="Señal", hole=0.65,
+                      color="Señal", color_discrete_map=COLORS_P, title="Estado de pricing")
+        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                           font_color="#64748b", height=280, title_font_color="#e2e8f0",
+                           title_font_size=14,
+                           legend=dict(font=dict(color="#64748b",size=11)))
+        fig2.update_traces(textfont_color="white")
+        st.plotly_chart(fig2, use_container_width=True)
 
 
-# ══ TAB 2 — DEMANDA ══════════════════════════════════════════
+# ══ TAB 2: DEMANDA ════════════════════════════════════════════
 with tab2:
-    st.markdown('<div class="section-title">Evolución de demanda por SKU</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📈 Evolución de demanda por SKU</div>', unsafe_allow_html=True)
     skus = sorted(df["sku_id"].unique())
     sku_sel = st.multiselect("Selecciona SKUs", options=skus, default=skus[:4],
                              format_func=lambda x: f"{x} — {sku_nombres.get(x,'')}")
     if sku_sel:
         df_plot = df[df["sku_id"].isin(sku_sel)].copy()
-        df_agg  = df_plot.groupby(["fecha","sku_id","nombre_producto"])["unidades_vendidas"].sum().reset_index()
-        PALETTE = ["#4F46E5","#10B981","#F59E0B","#EF4444","#7C3AED","#06B6D4"]
-        fig_line = go.Figure()
-        for i, sku in enumerate(sku_sel):
-            df_s = df_agg[df_agg["sku_id"] == sku]
-            fig_line.add_trace(go.Scatter(
-                x=df_s["fecha"], y=df_s["unidades_vendidas"],
-                name=sku_nombres.get(sku, sku),
-                line=dict(color=PALETTE[i % len(PALETTE)], width=2.5),
-                mode="lines"))
-        fig_line.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#FAFBFF",
-            font_color="#64748B", height=380,
-            legend=dict(orientation="h", y=-0.25, font=dict(color="#64748B", size=11)),
-            xaxis=dict(gridcolor="#F1F3F9", showline=False, tickfont=dict(size=11)),
-            yaxis=dict(gridcolor="#F1F3F9", showline=False, title="Unidades", tickfont=dict(size=11)),
-            hovermode="x unified", margin=dict(t=10,b=10))
-        st.plotly_chart(fig_line, use_container_width=True)
+        df_agg = df_plot.groupby(["fecha","sku_id","nombre_producto"])["unidades_vendidas"].sum().reset_index()
+        fig_dem = px.line(df_agg, x="fecha", y="unidades_vendidas", color="nombre_producto",
+                          labels={"unidades_vendidas":"Unidades","fecha":"Fecha","nombre_producto":"Producto"})
+        fig_dem.update_traces(line=dict(width=2))
+        fig_dem.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(6,13,26,0.5)",
+            font_color="#64748b", height=400,
+            legend=dict(orientation="h", yanchor="bottom", y=-0.4, font=dict(color="#94a3b8",size=11)),
+            xaxis=dict(gridcolor="rgba(29,106,245,0.08)", showline=False),
+            yaxis=dict(gridcolor="rgba(29,106,245,0.08)", showline=False),
+        )
+        st.plotly_chart(fig_dem, use_container_width=True)
 
-        col_h, col_e = st.columns(2, gap="large")
-        with col_h:
-            st.markdown('<div class="section-title">Estacionalidad</div>', unsafe_allow_html=True)
-            sku_h = st.selectbox("SKU heatmap", options=sku_sel,
-                                 format_func=lambda x: f"{x} — {sku_nombres.get(x,'')}")
-            df_heat = df[df["sku_id"] == sku_h].copy()
-            dias   = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"]
-            meses  = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
-            pivot  = df_heat.groupby(["mes","dia_semana"])["unidades_vendidas"].mean().unstack(fill_value=0)
-            pivot.index   = [meses[i-1] for i in pivot.index]
-            pivot.columns = [dias[i]    for i in pivot.columns]
-            fig_h = px.imshow(pivot,
-                              color_continuous_scale=[[0,"#EEF2FF"],[0.5,"#818CF8"],[1,"#3730A3"]],
-                              labels=dict(color="Uds/día"))
-            fig_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", font_color="#64748B",
-                                height=300, margin=dict(t=10,b=10))
-            st.plotly_chart(fig_h, use_container_width=True)
+        st.markdown('<div class="section-header">🗓 Estacionalidad</div>', unsafe_allow_html=True)
+        sku_h = st.selectbox("SKU para heatmap", options=sku_sel,
+                             format_func=lambda x: f"{x} — {sku_nombres.get(x,'')}")
+        df_heat = df[df["sku_id"] == sku_h].copy()
+        dias   = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"]
+        meses  = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+        pivot  = df_heat.groupby(["mes","dia_semana"])["unidades_vendidas"].mean().unstack(fill_value=0)
+        pivot.index   = [meses[i-1] for i in pivot.index]
+        pivot.columns = [dias[i]    for i in pivot.columns]
+        fig_h = px.imshow(pivot, color_continuous_scale="Blues",
+                          labels=dict(color="Uds/día"),
+                          title=f"Demanda media — {sku_nombres.get(sku_h,'')}")
+        fig_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                            font_color="#64748b", height=320, title_font_color="#e2e8f0")
+        st.plotly_chart(fig_h, use_container_width=True)
 
-        with col_e:
-            st.markdown('<div class="section-title">Métricas por producto</div>', unsafe_allow_html=True)
-            res = df_plot.groupby(["sku_id","nombre_producto"]).agg(
-                Ventas=("unidades_vendidas","sum"),
-                Media=("unidades_vendidas","mean"),
-                Ingreso=("ingreso_estimado","sum"),
-                Margen=("margen_estimado_eur","sum"),
-            ).reset_index().round(1)
-            res.columns = ["SKU","Producto","Ventas","Media/día","Ingreso €","Margen €"]
-            st.dataframe(res, use_container_width=True, hide_index=True, height=300)
+        st.markdown('<div class="section-header">📋 Métricas por producto</div>', unsafe_allow_html=True)
+        res = df_plot.groupby(["sku_id","nombre_producto"]).agg(
+            Ventas_total=("unidades_vendidas","sum"),
+            Media_diaria=("unidades_vendidas","mean"),
+            Ingreso_total=("ingreso_estimado","sum"),
+            Margen_total=("margen_estimado_eur","sum"),
+        ).reset_index().round(1)
+        res.columns = ["SKU","Producto","Ventas totales","Media/día","Ingreso €","Margen €"]
+        st.dataframe(res, use_container_width=True, hide_index=True)
 
 
-# ══ TAB 3 — PRICING ══════════════════════════════════════════
+# ══ TAB 3: PRICING ════════════════════════════════════════════
 with tab3:
-    st.markdown('<div class="section-title">Comparativa de precios vs competencia</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">💰 Comparativa de precios vs competencia</div>', unsafe_allow_html=True)
     ultimo_df = df.sort_values("fecha").groupby("sku_id").last().reset_index()
-    productos_list = ultimo_df["nombre_producto"].tolist()
-    comp_cols = [c for c in ultimo_df.columns if c.startswith("precio_") and c not in
-                 ["precio_venta","precio_comp_min","precio_comp_avg","precio_comp_max","precio_mercado_ref","precio_min_viable"]]
-    nombre_comp_map = {
-        "precio_decathlon": "Decathlon", "precio_trailzone": "TrailZone",
-        "precio_outdoorpro": "OutdoorPro", "precio_ortoweb": "Ortoweb",
-        "precio_medicalexpo": "Medicalexpo",
-    }
-    PALETTE_P = ["#4F46E5","#EF4444","#F59E0B","#10B981"]
-    fig_bar = go.Figure()
-    for i, (col, name) in enumerate(zip(
-        ["precio_venta"] + comp_cols,
-        ["Tu precio"] + [nombre_comp_map.get(c, c.replace("precio_","").replace("_"," ").title()) for c in comp_cols]
-    )):
-        fig_bar.add_trace(go.Bar(name=name, x=productos_list, y=ultimo_df[col],
-                                 marker_color=PALETTE_P[i%len(PALETTE_P)], marker_line_width=0))
-    fig_bar.update_layout(
-        barmode="group", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#FAFBFF",
-        font_color="#64748B", height=400, xaxis_tickangle=-30,
-        legend=dict(orientation="h", y=-0.45, font=dict(color="#64748B")),
-        xaxis=dict(gridcolor="#F1F3F9", tickfont=dict(size=10)),
-        yaxis=dict(gridcolor="#F1F3F9", title="Precio (€)"),
-        bargap=0.2, bargroupgap=0.05, margin=dict(t=10,b=10))
-    st.plotly_chart(fig_bar, use_container_width=True)
+    productos = ultimo_df["nombre_producto"].tolist()
 
-    col_ev, col_tabla = st.columns([1.2, 1], gap="large")
-    with col_ev:
-        st.markdown('<div class="section-title">Evolución precio vs competencia</div>', unsafe_allow_html=True)
-        sku_p = st.selectbox("Producto", options=sorted(df["sku_id"].unique()),
-                             format_func=lambda x: f"{x} — {sku_nombres.get(x,'')}", key="p_sku")
-        df_sku = df[df["sku_id"] == sku_p]
-        fig_ev = go.Figure()
-        ev_cols = [("precio_venta","Tu precio","#4F46E5","solid",2.5)] + \
-                  [(c, nombre_comp_map.get(c, c.replace("precio_","").title()),
-                    PALETTE_P[(i+1)%len(PALETTE_P)], "dot", 1.5)
-                   for i,c in enumerate(comp_cols) if c in df_sku.columns]
-        for col, name, color, dash, width in ev_cols:
-            if col in df_sku.columns:
-                fig_ev.add_trace(go.Scatter(x=df_sku["fecha"], y=df_sku[col], name=name,
-                    line=dict(color=color, width=width, dash=dash)))
-        fig_ev.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#FAFBFF",
-            font_color="#64748B", height=320,
-            legend=dict(orientation="h", y=-0.35, font=dict(color="#64748B",size=11)),
-            xaxis=dict(gridcolor="#F1F3F9"),
-            yaxis=dict(gridcolor="#F1F3F9", title="Precio (€)"),
-            margin=dict(t=10,b=10))
-        st.plotly_chart(fig_ev, use_container_width=True)
+    PALETTE = ["#1d6af5","#f43f5e","#a855f7","#4ade80"]
+    fig_p = go.Figure()
+    for i,(col,name) in enumerate(zip(
+        ["precio_venta","precio_decathlon","precio_trailzone","precio_outdoorpro"],
+        ["Tu precio","Decathlon","TrailZone","OutdoorPro"])):
+        fig_p.add_trace(go.Bar(name=name, x=productos, y=ultimo_df[col], marker_color=PALETTE[i]))
 
-    with col_tabla:
-        st.markdown('<div class="section-title">Recomendaciones de pricing</div>', unsafe_allow_html=True)
-        cols_p = ["Producto","Categoría","señal_pricing","accion_pricing","Precio actual","Precio rec.","Comp. mín.","Impacto pricing €"]
-        df_tp = df_rec[cols_p].copy()
-        df_tp.columns = ["Producto","Categoría","Señal","Acción","Precio actual €","Precio rec. €","Comp. mín. €","Impacto €"]
-        def color_pricing(val):
-            m = {"PRECIO ALTO":"background-color:#FEE2E2;color:#DC2626",
-                 "SUBIR PRECIO":"background-color:#D1FAE5;color:#059669",
-                 "ALERTA COMP.":"background-color:#FEF3C7;color:#D97706"}
-            return m.get(val,"background-color:#EEF2FF;color:#4338CA")
-        st.dataframe(df_tp.style.map(color_pricing, subset=["Señal"]),
-                     use_container_width=True, hide_index=True, height=380)
+    fig_p.update_layout(barmode="group",
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(6,13,26,0.5)",
+        font_color="#64748b", height=420, xaxis_tickangle=-35,
+        legend=dict(orientation="h", yanchor="bottom", y=-0.55, font=dict(color="#94a3b8")),
+        xaxis=dict(gridcolor="rgba(29,106,245,0.08)"),
+        yaxis=dict(gridcolor="rgba(29,106,245,0.08)", title="Precio (€)"))
+    st.plotly_chart(fig_p, use_container_width=True)
+
+    st.markdown('<div class="section-header">📉 Evolución precio vs competencia</div>', unsafe_allow_html=True)
+    sku_p = st.selectbox("Producto", options=sorted(df["sku_id"].unique()),
+                         format_func=lambda x: f"{x} — {sku_nombres.get(x,'')}", key="p_sku")
+    df_sku = df[df["sku_id"] == sku_p]
+    fig_ev = go.Figure()
+    for col, name, color, dash in [
+        ("precio_venta","Tu precio","#1d6af5","solid"),
+        ("precio_decathlon","Decathlon","#f43f5e","dot"),
+        ("precio_trailzone","TrailZone","#a855f7","dot"),
+        ("precio_outdoorpro","OutdoorPro","#4ade80","dot"),
+    ]:
+        fig_ev.add_trace(go.Scatter(x=df_sku["fecha"], y=df_sku[col],
+            name=name, line=dict(color=color, width=2.5 if dash=="solid" else 1.5, dash=dash)))
+    fig_ev.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(6,13,26,0.5)",
+        font_color="#64748b", height=360,
+        legend=dict(orientation="h", yanchor="bottom", y=-0.3, font=dict(color="#94a3b8")),
+        xaxis=dict(gridcolor="rgba(29,106,245,0.08)"),
+        yaxis=dict(gridcolor="rgba(29,106,245,0.08)", title="Precio (€)"))
+    st.plotly_chart(fig_ev, use_container_width=True)
+
+    st.markdown('<div class="section-header">📋 Tabla de recomendaciones</div>', unsafe_allow_html=True)
+    cols_p = ["Producto","Categoría","señal_pricing","accion_pricing","Precio actual","Precio rec.","Comp. mín.","Impacto pricing €"]
+    df_tp = df_rec[cols_p].copy()
+    df_tp.columns = ["Producto","Categoría","Señal","Acción","Precio actual €","Precio rec. €","Comp. mín. €","Impacto €"]
+    def color_p(val):
+        m = {"PRECIO ALTO":"background-color:rgba(244,63,94,0.12);color:#f43f5e",
+             "SUBIR PRECIO":"background-color:rgba(74,222,128,0.12);color:#4ade80",
+             "ALERTA COMP.":"background-color:rgba(251,146,60,0.12);color:#fb923c"}
+        return m.get(val,"background-color:rgba(29,106,245,0.12);color:#60a5fa")
+    st.dataframe(df_tp.style.map(color_p, subset=["Señal"]), use_container_width=True, hide_index=True, height=380)
 
 
-# ══ TAB 4 — STOCK ════════════════════════════════════════════
+# ══ TAB 4: STOCK ══════════════════════════════════════════════
 with tab4:
-    col_s1, col_s2 = st.columns(2, gap="large")
+    st.markdown('<div class="section-header">📦 Stock disponible por SKU</div>', unsafe_allow_html=True)
+    ultimo_s = df.sort_values("fecha").groupby("sku_id").last().reset_index()
+    ultimo_s_sorted = ultimo_s.sort_values("stock_disponible", ascending=True)
 
-    with col_s1:
-        st.markdown('<div class="section-title">Stock disponible por SKU</div>', unsafe_allow_html=True)
-        ultimo_s = df.sort_values("fecha").groupby("sku_id").last().reset_index()
-        ultimo_s_sorted = ultimo_s.sort_values("stock_disponible", ascending=True)
-        colores_bar = []
-        for _, r in ultimo_s_sorted.iterrows():
-            cob = r["stock_disponible"] / max(r["ventas_media_7d"], 0.1)
-            if cob < 7:    colores_bar.append("#EF4444")
-            elif cob < 15: colores_bar.append("#F59E0B")
-            elif cob > 45: colores_bar.append("#6366F1")
-            else:          colores_bar.append("#10B981")
-        fig_stock = go.Figure()
-        fig_stock.add_trace(go.Bar(
-            x=ultimo_s_sorted["stock_disponible"], y=ultimo_s_sorted["nombre_producto"],
-            orientation="h", marker_color=colores_bar, marker_line_width=0,
-            text=ultimo_s_sorted["stock_disponible"].astype(str)+" uds",
-            textposition="outside", textfont=dict(color="#64748B", size=10)))
-        fig_stock.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#FAFBFF",
-            font_color="#64748B", height=480, xaxis_title="Unidades en stock",
-            xaxis=dict(gridcolor="#F1F3F9"),
-            margin=dict(t=10,b=10,l=10,r=60))
-        st.plotly_chart(fig_stock, use_container_width=True)
+    COLOR_SENAL = {"CRITICO": "#f43f5e", "REPOSICION": "#fb923c", "EXCESO": "#3b82f6", "OK": "#4ade80"}
+    colores_bar = []
+    for _, r in ultimo_s_sorted.iterrows():
+        media_7d = max(r["ventas_media_7d"], 0.1)
+        media_30d = max(r.get("ventas_media_30d", media_7d), 0.1)
+        cob = r["stock_disponible"] / media_7d
+        senal = clasificar_cobertura(cob, media_7d, media_30d)
+        colores_bar.append(COLOR_SENAL[senal])
 
-    with col_s2:
-        st.markdown('<div class="section-title">Días de cobertura por SKU</div>', unsafe_allow_html=True)
-        df_cob = df_rec.sort_values("Cobertura (días)")
-        colores_cob = ["#EF4444" if c<7 else "#F59E0B" if c<15 else "#6366F1" if c>45 else "#10B981"
-                       for c in df_cob["Cobertura (días)"].tolist()]
-        fig_cob = go.Figure()
-        fig_cob.add_trace(go.Bar(
-            x=df_cob["Cobertura (días)"], y=df_cob["Producto"],
-            orientation="h", marker_color=colores_cob, marker_line_width=0,
-            text=[f"{c} días" for c in df_cob["Cobertura (días)"].tolist()],
-            textposition="outside", textfont=dict(color="#64748B", size=10)))
-        for x_val, color, label in [(7,"#EF4444","Crítico"),(15,"#F59E0B","Riesgo"),(45,"#6366F1","Exceso")]:
-            fig_cob.add_vline(x=x_val, line_dash="dash", line_color=color,
-                              line_width=1.5, opacity=0.6,
-                              annotation_text=label, annotation_font_color=color,
-                              annotation_font_size=10)
-        fig_cob.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#FAFBFF",
-            font_color="#64748B", height=480, xaxis_title="Días",
-            xaxis=dict(gridcolor="#F1F3F9"),
-            margin=dict(t=10,b=10,l=10,r=60))
-        st.plotly_chart(fig_cob, use_container_width=True)
+    fig_s = go.Figure()
+    fig_s.add_trace(go.Bar(
+        x=ultimo_s_sorted["stock_disponible"],
+        y=ultimo_s_sorted["nombre_producto"],
+        orientation="h", marker_color=colores_bar,
+        text=ultimo_s_sorted["stock_disponible"].astype(str)+" uds",
+        textposition="outside", textfont=dict(color="#94a3b8", size=11)))
+    fig_s.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(6,13,26,0.5)",
+        font_color="#64748b", height=480, xaxis_title="Unidades en stock",
+        xaxis=dict(gridcolor="rgba(29,106,245,0.08)"))
+    st.plotly_chart(fig_s, use_container_width=True)
 
-    st.markdown('<div class="section-title">Tabla de alertas de stock</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">⏱ Días de cobertura</div>', unsafe_allow_html=True)
+    df_cob = df_rec.sort_values("Cobertura (días)")
+    cols_cob = df_cob["Cobertura (días)"].tolist()
+    COLOR_SENAL_UI = {"CRÍTICO": "#f43f5e", "REPOSICIÓN": "#fb923c", "EXCESO": "#3b82f6", "OK": "#4ade80"}
+    colores_cob = [COLOR_SENAL_UI.get(s, "#4ade80") for s in df_cob["señal_stock"]]
+
+    fig_cob = go.Figure()
+    fig_cob.add_trace(go.Bar(
+        x=df_cob["Cobertura (días)"], y=df_cob["Producto"],
+        orientation="h", marker_color=colores_cob,
+        text=[f"{c} días" for c in cols_cob], textposition="outside",
+        textfont=dict(color="#94a3b8", size=11)))
+    for x, color, label in [(7,"#f43f5e","Crítico"),(15,"#fb923c","Riesgo"),(45,"#3b82f6","Exceso")]:
+        fig_cob.add_vline(x=x, line_dash="dash", line_color=color, opacity=0.5,
+                          annotation_text=label, annotation_font_color=color,
+                          annotation_font_size=11)
+    fig_cob.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(6,13,26,0.5)",
+        font_color="#64748b", height=480, xaxis_title="Días",
+        xaxis=dict(gridcolor="rgba(29,106,245,0.08)"))
+    st.plotly_chart(fig_cob, use_container_width=True)
+
+    st.markdown('<div class="section-header">📋 Tabla de alertas de stock</div>', unsafe_allow_html=True)
     cols_s = ["Producto","Categoría","señal_stock","accion_stock","Stock","Cobertura (días)","Demanda/día","Impacto stock €"]
     df_ts = df_rec[cols_s].copy()
     df_ts.columns = ["Producto","Categoría","Señal","Acción","Stock uds","Cobertura días","Demanda/día","Impacto €"]
-    def color_stock(val):
-        m = {"CRÍTICO":"background-color:#FEE2E2;color:#DC2626",
-             "REPOSICIÓN":"background-color:#FEF3C7;color:#D97706",
-             "EXCESO":"background-color:#EEF2FF;color:#4338CA"}
-        return m.get(val,"background-color:#D1FAE5;color:#059669")
-    st.dataframe(df_ts.style.map(color_stock, subset=["Señal"]),
-                 use_container_width=True, hide_index=True, height=380)
+    def color_s(val):
+        m = {"CRÍTICO":"background-color:rgba(244,63,94,0.12);color:#f43f5e",
+             "REPOSICIÓN":"background-color:rgba(251,146,60,0.12);color:#fb923c",
+             "EXCESO":"background-color:rgba(29,106,245,0.12);color:#60a5fa"}
+        return m.get(val,"background-color:rgba(74,222,128,0.12);color:#4ade80")
+    st.dataframe(df_ts.style.map(color_s, subset=["Señal"]), use_container_width=True, hide_index=True, height=380)
 
 
 # ── FOOTER ────────────────────────────────────────────────────
-st.markdown("""
-<div style="text-align:center;padding:20px 0 8px;border-top:1px solid #E4E7F0;margin-top:16px">
-  <span style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:#CBD5E1;letter-spacing:0.15em">
-    ILTONIF © 2025 &nbsp;·&nbsp; INTELLIGENCE PLATFORM &nbsp;·&nbsp; PRICING & STOCK AI
-  </span>
-</div>
-""", unsafe_allow_html=True)
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+st.markdown(
+    '<div style="text-align:center;font-family:\'JetBrains Mono\',monospace;color:#1e293b;font-size:0.65rem;letter-spacing:0.2em;padding:8px 0">ILTONIF © 2025 — INTELLIGENCE PLATFORM · PRICING & STOCK AI</div>',
+    unsafe_allow_html=True)
