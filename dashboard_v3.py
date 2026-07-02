@@ -6,6 +6,8 @@ import plotly.graph_objects as go
 from pathlib import Path
 from datetime import datetime, timedelta
 
+from decision_engine import evaluar_sku, clasificar_cobertura
+
 st.set_page_config(
     page_title="ILTONIF — Intelligence Platform",
     page_icon="⚡",
@@ -307,76 +309,30 @@ def cargar_datos():
     df = pd.read_csv(base / "iltonif_dataset_modelable_v3.csv", parse_dates=["fecha"])
     return df
 
+# Mapeo de señales del motor (sin acentos, testable) a etiquetas de UI
+SENAL_LABEL = {"CRITICO": "CRÍTICO", "REPOSICION": "REPOSICIÓN"}
+
+
 @st.cache_data
 def generar_recomendaciones(df):
+    """Genera la tabla de recomendaciones delegando la lógica en decision_engine."""
     ultimo = df.sort_values("fecha").groupby("sku_id").last().reset_index()
     recs = []
     for _, row in ultimo.iterrows():
-        pvp = row["precio_venta"]
-        coste = row["coste_unitario"]
-        comp_min = row["precio_comp_min"]
-        comp_avg = row["precio_comp_avg"]
-        stock = row["stock_disponible"]
-        media_7d = max(row["ventas_media_7d"], 0.1)
-        media_30d = max(row["ventas_media_30d"], 0.1)
-        cobertura = stock / media_7d
-
-        if cobertura < 7:
-            señal_stock = "CRÍTICO"
-            accion_stock = f"Repón {int(media_7d*30)} uds — rotura en {int(cobertura)} días"
-            impacto_stock = round(media_7d * pvp * max(0, 7 - cobertura), 0)
-        elif cobertura < 15:
-            señal_stock = "REPOSICIÓN"
-            accion_stock = f"Repón {int(media_7d*30)} uds esta semana"
-            impacto_stock = round(media_7d * pvp * 3, 0)
-        elif cobertura > 45 and media_7d <= media_30d:
-            señal_stock = "EXCESO"
-            accion_stock = f"{int(cobertura)} días cobertura — considera promoción"
-            impacto_stock = 0
-        else:
-            señal_stock = "OK"
-            accion_stock = "Niveles óptimos"
-            impacto_stock = 0
-
-        dif_min = pvp - comp_min
-        ratio = pvp / comp_avg if comp_avg > 0 else 1
-        precio_min_viable = coste / 0.8
-
-        if dif_min > comp_min * 0.10:
-            bajada = min((dif_min / pvp) * 0.6, 0.20)
-            precio_rec = max(round(pvp * (1 - bajada), 2), precio_min_viable)
-            señal_pricing = "PRECIO ALTO"
-            accion_pricing = f"Bajar {bajada*100:.1f}% → {precio_rec:.2f}€"
-            impacto_pricing = round(media_7d * bajada * 1.5 * (precio_rec - coste), 0)
-        elif ratio < 0.92:
-            subida = 0.06
-            precio_rec = round(pvp * (1 + subida), 2)
-            señal_pricing = "SUBIR PRECIO"
-            accion_pricing = f"Subir {subida*100:.0f}% → {precio_rec:.2f}€"
-            impacto_pricing = round(media_7d * subida * pvp, 0)
-        elif row.get("alerta_bajada_competidor", 0) == 1:
-            señal_pricing = "ALERTA COMP."
-            accion_pricing = "Competidor bajó >5% esta semana"
-            precio_rec = pvp
-            impacto_pricing = 0
-        else:
-            señal_pricing = "OK"
-            accion_pricing = "Precio competitivo"
-            precio_rec = pvp
-            impacto_pricing = 0
-
+        r = evaluar_sku(row.to_dict())
         recs.append({
             "SKU": row["sku_id"], "Producto": row["nombre_producto"],
             "Categoría": row["categoria"], "Plataforma": row["plataforma"],
-            "señal_stock": señal_stock, "accion_stock": accion_stock,
-            "señal_pricing": señal_pricing, "accion_pricing": accion_pricing,
-            "Precio actual": round(pvp, 2), "Precio rec.": round(precio_rec, 2),
-            "Comp. mín.": round(comp_min, 2), "Comp. avg": round(comp_avg, 2),
-            "Stock": int(stock), "Cobertura (días)": round(cobertura, 1),
-            "Demanda/día": round(media_7d, 1),
-            "Impacto stock €": impacto_stock,
-            "Impacto pricing €": impacto_pricing,
-            "Impacto total €": impacto_stock + impacto_pricing,
+            "señal_stock": SENAL_LABEL.get(r["senal_stock"], r["senal_stock"]),
+            "accion_stock": r["accion_stock"],
+            "señal_pricing": r["senal_pricing"], "accion_pricing": r["accion_pricing"],
+            "Precio actual": round(row["precio_venta"], 2), "Precio rec.": round(r["precio_rec"], 2),
+            "Comp. mín.": round(row["precio_comp_min"], 2), "Comp. avg": round(row["precio_comp_avg"], 2),
+            "Stock": int(row["stock_disponible"]), "Cobertura (días)": r["cobertura_dias"],
+            "Demanda/día": round(max(row["ventas_media_7d"], 0.1), 1),
+            "Impacto stock €": r["impacto_stock"],
+            "Impacto pricing €": r["impacto_pricing"],
+            "Impacto total €": r["impacto_total"],
         })
     return pd.DataFrame(recs)
 
@@ -708,13 +664,14 @@ with tab4:
     ultimo_s = df.sort_values("fecha").groupby("sku_id").last().reset_index()
     ultimo_s_sorted = ultimo_s.sort_values("stock_disponible", ascending=True)
 
+    COLOR_SENAL = {"CRITICO": "#f43f5e", "REPOSICION": "#fb923c", "EXCESO": "#3b82f6", "OK": "#4ade80"}
     colores_bar = []
     for _, r in ultimo_s_sorted.iterrows():
-        cob = r["stock_disponible"] / max(r["ventas_media_7d"], 0.1)
-        if cob < 7:    colores_bar.append("#f43f5e")
-        elif cob < 15: colores_bar.append("#fb923c")
-        elif cob > 45: colores_bar.append("#3b82f6")
-        else:          colores_bar.append("#4ade80")
+        media_7d = max(r["ventas_media_7d"], 0.1)
+        media_30d = max(r.get("ventas_media_30d", media_7d), 0.1)
+        cob = r["stock_disponible"] / media_7d
+        senal = clasificar_cobertura(cob, media_7d, media_30d)
+        colores_bar.append(COLOR_SENAL[senal])
 
     fig_s = go.Figure()
     fig_s.add_trace(go.Bar(
@@ -732,7 +689,8 @@ with tab4:
     st.markdown('<div class="section-header">⏱ Días de cobertura</div>', unsafe_allow_html=True)
     df_cob = df_rec.sort_values("Cobertura (días)")
     cols_cob = df_cob["Cobertura (días)"].tolist()
-    colores_cob = ["#f43f5e" if c<7 else "#fb923c" if c<15 else "#3b82f6" if c>45 else "#4ade80" for c in cols_cob]
+    COLOR_SENAL_UI = {"CRÍTICO": "#f43f5e", "REPOSICIÓN": "#fb923c", "EXCESO": "#3b82f6", "OK": "#4ade80"}
+    colores_cob = [COLOR_SENAL_UI.get(s, "#4ade80") for s in df_cob["señal_stock"]]
 
     fig_cob = go.Figure()
     fig_cob.add_trace(go.Bar(
