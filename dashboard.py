@@ -5,8 +5,13 @@ import plotly.express as px
 import plotly.graph_objects as go
 from pathlib import Path
 from datetime import datetime, timedelta
+import decision_engine as de
 
-from decision_engine import evaluar_sku, clasificar_cobertura
+try:
+    import posthog
+    _POSTHOG_OK = True
+except ImportError:
+    _POSTHOG_OK = False
 
 st.set_page_config(
     page_title="ILTONIF — Intelligence Platform",
@@ -15,61 +20,46 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
-# ── Autenticación ─────────────────────────────────────────────
-def check_password() -> bool:
-    """Gate de acceso con contraseña definida en st.secrets['password']."""
-
-    def _password_entered():
-        if st.session_state.get("_password") == st.secrets.get("password"):
-            st.session_state["_password_correct"] = True
-            del st.session_state["_password"]
+# ── AUTENTICACIÓN ────────────────────────────────────────────
+def check_password():
+    """Devuelve True si el usuario ya introdujo la contraseña correcta."""
+    def password_entered():
+        if st.session_state["password"] == st.secrets["dashboard_password"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
         else:
-            st.session_state["_password_correct"] = False
+            st.session_state["password_correct"] = False
 
-    if "password" not in st.secrets:
-        st.error("⚠️ Falta 'password' en st.secrets. Configúrala en .streamlit/secrets.toml (local) o en Settings → Secrets (Streamlit Cloud).")
-        return False
-
-    if st.session_state.get("_password_correct", False):
+    if st.session_state.get("password_correct", False):
         return True
 
-    st.text_input("Contraseña", type="password", key="_password", on_change=_password_entered)
-    if st.session_state.get("_password_correct") is False:
+    st.text_input(
+        "Contraseña", type="password",
+        on_change=password_entered, key="password"
+    )
+    if "password_correct" in st.session_state and not st.session_state["password_correct"]:
         st.error("Contraseña incorrecta")
     return False
-
 
 if not check_password():
     st.stop()
 
+# ── TRACKING DE PRODUCTO ─────────────────────────────────────
+if _POSTHOG_OK and "posthog_api_key" in st.secrets:
+    posthog.api_key = st.secrets["posthog_api_key"]
+    posthog.host = st.secrets.get("posthog_host", "https://eu.i.posthog.com")
 
-# ── Tracking (PostHog) ────────────────────────────────────────
-import uuid
-
-
-@st.cache_resource
-def _get_posthog():
-    """Cliente PostHog; devuelve None si no hay API key configurada (tracking desactivado)."""
-    api_key = st.secrets.get("posthog_api_key")
-    if not api_key:
-        return None
-    try:
-        from posthog import Posthog
-        return Posthog(project_api_key=api_key, host=st.secrets.get("posthog_host", "https://eu.i.posthog.com"))
-    except Exception:
-        return None
-
-
-def track(event: str, props: dict = None):
-    """Emite un evento a PostHog. No-op silencioso si no hay cliente."""
-    ph = _get_posthog()
-    if ph is None:
+def registrar_evento(nombre_evento: str, propiedades: dict):
+    """Envía un evento de producto. No lanza excepción si falla, para que
+    un problema de tracking nunca rompa el dashboard."""
+    if not (_POSTHOG_OK and "posthog_api_key" in st.secrets):
         return
-    if "_distinct_id" not in st.session_state:
-        st.session_state["_distinct_id"] = str(uuid.uuid4())
     try:
-        ph.capture(distinct_id=st.session_state["_distinct_id"], event=event, properties=props or {})
+        posthog.capture(
+            distinct_id="pedro-beta",
+            event=nombre_evento,
+            properties=propiedades,
+        )
     except Exception:
         pass
 
@@ -309,27 +299,37 @@ def cargar_datos():
     df = pd.read_csv(base / "iltonif_dataset_modelable_v3.csv", parse_dates=["fecha"])
     return df
 
-# Mapeo de señales del motor (sin acentos, testable) a etiquetas de UI
-SENAL_LABEL = {"CRITICO": "CRÍTICO", "REPOSICION": "REPOSICIÓN"}
-
+# Mapa de las señales de stock que devuelve decision_engine (sin acentos,
+# por diseño: evita problemas de encoding en el módulo de lógica pura) a
+# las etiquetas con acentos que ya usa toda la interfaz de este dashboard.
+_MAPA_SENAL_STOCK = {
+    "CRITICO": "CRÍTICO",
+    "REPOSICION": "REPOSICIÓN",
+    "EXCESO": "EXCESO",
+    "OK": "OK",
+}
 
 @st.cache_data
 def generar_recomendaciones(df):
-    """Genera la tabla de recomendaciones delegando la lógica en decision_engine."""
+    """Genera las recomendaciones por SKU usando decision_engine.evaluar_sku,
+    para que la lógica de negocio viva en un único sitio (testeado con
+    pytest) en vez de estar duplicada aquí y en el Tab 4."""
     ultimo = df.sort_values("fecha").groupby("sku_id").last().reset_index()
     recs = []
     for _, row in ultimo.iterrows():
-        r = evaluar_sku(row.to_dict())
+        r = de.evaluar_sku(row.to_dict())
+        media_7d = max(row["ventas_media_7d"], 0.1)
+
         recs.append({
             "SKU": row["sku_id"], "Producto": row["nombre_producto"],
             "Categoría": row["categoria"], "Plataforma": row["plataforma"],
-            "señal_stock": SENAL_LABEL.get(r["senal_stock"], r["senal_stock"]),
+            "señal_stock": _MAPA_SENAL_STOCK[r["senal_stock"]],
             "accion_stock": r["accion_stock"],
             "señal_pricing": r["senal_pricing"], "accion_pricing": r["accion_pricing"],
             "Precio actual": round(row["precio_venta"], 2), "Precio rec.": round(r["precio_rec"], 2),
             "Comp. mín.": round(row["precio_comp_min"], 2), "Comp. avg": round(row["precio_comp_avg"], 2),
             "Stock": int(row["stock_disponible"]), "Cobertura (días)": r["cobertura_dias"],
-            "Demanda/día": round(max(row["ventas_media_7d"], 0.1), 1),
+            "Demanda/día": round(media_7d, 1),
             "Impacto stock €": r["impacto_stock"],
             "Impacto pricing €": r["impacto_pricing"],
             "Impacto total €": r["impacto_total"],
@@ -449,7 +449,7 @@ with tab1:
     df_rec["prio"] = df_rec["señal_stock"].map(PRIO).fillna(99)
     df_sorted = df_rec[df_rec["prio"] < 99].sort_values("prio")
 
-    for idx, row in df_sorted.iterrows():
+    for _, row in df_sorted.iterrows():
         ss = row["señal_stock"]
         sp = row["señal_pricing"]
         imp = row["Impacto total €"]
@@ -501,28 +501,27 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
 
-        estado_key = f"rec_estado_{row['Producto']}"
-        estado = st.session_state.get(estado_key)
-        if estado:
-            st.caption(f"✓ Recomendación marcada como {estado}")
-        else:
-            col_ap, col_desc, _sp = st.columns([1, 1, 5])
-            rec_props = {
-                "producto": row["Producto"],
-                "categoria": row["Categoría"],
-                "plataforma": row["Plataforma"],
-                "señal_stock": ss,
-                "señal_pricing": sp,
-                "impacto_estimado_eur": float(imp),
-            }
-            if col_ap.button("✅ Aplicada", key=f"rec_ap_{idx}"):
-                track("recommendation_actioned", {**rec_props, "action": "aplicada"})
-                st.session_state[estado_key] = "aplicada"
-                st.rerun()
-            if col_desc.button("✖ Descartada", key=f"rec_desc_{idx}"):
-                track("recommendation_actioned", {**rec_props, "action": "descartada"})
-                st.session_state[estado_key] = "descartada"
-                st.rerun()
+        col_apply, col_dismiss, _sp = st.columns([1, 1, 3])
+        with col_apply:
+            if st.button("✓ Aplicada", key=f"apply_{row['SKU']}"):
+                registrar_evento("recommendation_actioned", {
+                    "sku": row["SKU"],
+                    "accion": "aplicada",
+                    "senal_stock": row["señal_stock"],
+                    "senal_pricing": row["señal_pricing"],
+                    "impacto_estimado_eur": row["Impacto total €"],
+                })
+                st.toast(f"Marcada como aplicada: {row['Producto']}")
+        with col_dismiss:
+            if st.button("✕ Descartar", key=f"dismiss_{row['SKU']}"):
+                registrar_evento("recommendation_actioned", {
+                    "sku": row["SKU"],
+                    "accion": "descartada",
+                    "senal_stock": row["señal_stock"],
+                    "senal_pricing": row["señal_pricing"],
+                    "impacto_estimado_eur": row["Impacto total €"],
+                })
+                st.toast(f"Descartada: {row['Producto']}")
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-header">📊 Distribución de alertas</div>', unsafe_allow_html=True)
@@ -664,14 +663,17 @@ with tab4:
     ultimo_s = df.sort_values("fecha").groupby("sku_id").last().reset_index()
     ultimo_s_sorted = ultimo_s.sort_values("stock_disponible", ascending=True)
 
-    COLOR_SENAL = {"CRITICO": "#f43f5e", "REPOSICION": "#fb923c", "EXCESO": "#3b82f6", "OK": "#4ade80"}
+    # Coloreado basado en decision_engine.clasificar_cobertura, en vez de
+    # repetir aquí los umbrales 7/15/45 (y la regla de media_30d) a mano
+    # como se hacía antes — evita que este tab quede desincronizado del
+    # resto del dashboard si se cambia un umbral en el futuro.
+    _COLOR_POR_SENAL = {"CRITICO": "#f43f5e", "REPOSICION": "#fb923c", "EXCESO": "#3b82f6", "OK": "#4ade80"}
     colores_bar = []
     for _, r in ultimo_s_sorted.iterrows():
         media_7d = max(r["ventas_media_7d"], 0.1)
-        media_30d = max(r.get("ventas_media_30d", media_7d), 0.1)
         cob = r["stock_disponible"] / media_7d
-        senal = clasificar_cobertura(cob, media_7d, media_30d)
-        colores_bar.append(COLOR_SENAL[senal])
+        senal = de.clasificar_cobertura(cob, media_7d, r.get("ventas_media_30d"))
+        colores_bar.append(_COLOR_POR_SENAL[senal])
 
     fig_s = go.Figure()
     fig_s.add_trace(go.Bar(
@@ -688,15 +690,16 @@ with tab4:
 
     st.markdown('<div class="section-header">⏱ Días de cobertura</div>', unsafe_allow_html=True)
     df_cob = df_rec.sort_values("Cobertura (días)")
-    cols_cob = df_cob["Cobertura (días)"].tolist()
-    COLOR_SENAL_UI = {"CRÍTICO": "#f43f5e", "REPOSICIÓN": "#fb923c", "EXCESO": "#3b82f6", "OK": "#4ade80"}
-    colores_cob = [COLOR_SENAL_UI.get(s, "#4ade80") for s in df_cob["señal_stock"]]
+    # df_rec["señal_stock"] ya viene de decision_engine (vía _MAPA_SENAL_STOCK),
+    # así que reutilizamos esa columna en vez de recalcular el umbral aquí.
+    _COLOR_POR_SENAL_ACENTOS = {"CRÍTICO": "#f43f5e", "REPOSICIÓN": "#fb923c", "EXCESO": "#3b82f6", "OK": "#4ade80"}
+    colores_cob = [_COLOR_POR_SENAL_ACENTOS.get(s, "#4ade80") for s in df_cob["señal_stock"]]
 
     fig_cob = go.Figure()
     fig_cob.add_trace(go.Bar(
         x=df_cob["Cobertura (días)"], y=df_cob["Producto"],
         orientation="h", marker_color=colores_cob,
-        text=[f"{c} días" for c in cols_cob], textposition="outside",
+        text=[f"{c} días" for c in df_cob["Cobertura (días)"].tolist()], textposition="outside",
         textfont=dict(color="#94a3b8", size=11)))
     for x, color, label in [(7,"#f43f5e","Crítico"),(15,"#fb923c","Riesgo"),(45,"#3b82f6","Exceso")]:
         fig_cob.add_vline(x=x, line_dash="dash", line_color=color, opacity=0.5,
