@@ -1,0 +1,33 @@
+name: Calentar dashboard
+
+# Despierta la app de Streamlit Cloud tras el redespliegue que provoca
+# el push diario del pipeline, para que la primera visita real no
+# sufra el arranque en frío (1-2 min).
+
+on:
+  workflow_run:
+    workflows: ["Actualizar dataset diario"]
+    types: [completed]
+  workflow_dispatch: # permite lanzarlo a mano desde la pestaña Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Esperar al redespliegue de Streamlit Cloud
+        run: sleep 90
+
+      - name: Ping con reintentos
+        run: |
+          URL="https://iltonif-intelligence.streamlit.app/"
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 "$URL")
+            echo "Intento $i: HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "Dashboard despierto."
+              exit 0
+            fi
+            sleep 60
+          done
+          echo "::error::El dashboard no respondió tras 5 intentos — revisar Streamlit Cloud"
+          exit 1
