@@ -745,18 +745,35 @@ with tab3:
     ultimo_df = df.sort_values("fecha").groupby("sku_id").last().reset_index()
     productos = ultimo_df["nombre_producto"].tolist()
 
+    # Etiquetas cortas para el eje (el nombre completo va en el hover)
+    def _acortar(nombre, limite=24):
+        return nombre if len(nombre) <= limite else nombre[:limite-1].rstrip() + "…"
+    etiquetas, _vistos = [], {}
+    for _n in productos:
+        _e = _acortar(_n)
+        if _e in _vistos:
+            _vistos[_e] += 1
+            _e = f"{_e} ({_vistos[_e]})"
+        else:
+            _vistos[_e] = 1
+        etiquetas.append(_e)
+
     PALETTE = ["#1d6af5","#f43f5e","#a855f7","#4ade80"]
     fig_p = go.Figure()
     for i,(col,name) in enumerate(zip(
         ["precio_venta","precio_decathlon","precio_trailzone","precio_outdoorpro"],
         ["Tu precio","Decathlon","TrailZone","OutdoorPro"])):
-        fig_p.add_trace(go.Bar(name=name, x=productos, y=ultimo_df[col], marker_color=PALETTE[i]))
+        fig_p.add_trace(go.Bar(name=name, x=etiquetas, y=ultimo_df[col],
+            marker_color=PALETTE[i], customdata=productos,
+            hovertemplate="%{customdata}<br>%{y:.2f} €<extra>" + name + "</extra>"))
 
     fig_p.update_layout(barmode="group",
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(6,13,26,0.5)",
-        font_color="#64748b", height=420, xaxis_tickangle=-35,
-        legend=dict(orientation="h", yanchor="bottom", y=-0.55, font=dict(color="#94a3b8")),
-        xaxis=dict(gridcolor="rgba(29,106,245,0.08)"),
+        font_color="#64748b", height=440, xaxis_tickangle=-35,
+        legend=dict(orientation="h", yanchor="bottom", y=1.04, xanchor="right", x=1,
+                    font=dict(color="#94a3b8")),
+        margin=dict(t=40),
+        xaxis=dict(gridcolor="rgba(29,106,245,0.08)", tickfont=dict(size=10)),
         yaxis=dict(gridcolor="rgba(29,106,245,0.08)", title="Precio (€)"))
     st.plotly_chart(fig_p, use_container_width=True)
 
