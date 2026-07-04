@@ -1,3 +1,4 @@
+ 
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -5,6 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from pathlib import Path
 from datetime import datetime, timedelta
+import json
 import decision_engine as de
  
 try:
@@ -111,6 +113,30 @@ if not check_password():
 if _POSTHOG_OK and "posthog_api_key" in st.secrets:
     posthog.api_key = st.secrets["posthog_api_key"]
     posthog.host = st.secrets.get("posthog_host", "https://eu.i.posthog.com")
+ 
+# ── ESTADO DE RECOMENDACIONES (aplicada/descartada) ──────────
+_ESTADO_RECS_PATH = Path(__file__).parent / "data" / "estado_recomendaciones.json"
+ 
+def _cargar_estado_recs() -> dict:
+    """Carga el estado guardado de las recomendaciones (sobrevive a recargas
+    de página; se resetea con el redespliegue diario del pipeline, igual que
+    las propias recomendaciones)."""
+    try:
+        return json.loads(_ESTADO_RECS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+ 
+def _guardar_estado_recs():
+    try:
+        _ESTADO_RECS_PATH.write_text(
+            json.dumps(st.session_state.estado_recs, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass  # el guardado nunca debe romper el dashboard
+ 
+if "estado_recs" not in st.session_state:
+    st.session_state.estado_recs = _cargar_estado_recs()
  
 def registrar_evento(nombre_evento: str, propiedades: dict):
     """Envía un evento de producto. No lanza excepción si falla, para que
@@ -589,27 +615,50 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
  
-        col_apply, col_dismiss, _sp = st.columns([1, 1, 3])
-        with col_apply:
-            if st.button("✓ Aplicada", key=f"apply_{row['SKU']}"):
-                registrar_evento("recommendation_actioned", {
-                    "sku": row["SKU"],
-                    "accion": "aplicada",
-                    "senal_stock": row["señal_stock"],
-                    "senal_pricing": row["señal_pricing"],
-                    "impacto_estimado_eur": row["Impacto total €"],
-                })
-                st.toast(f"Marcada como aplicada: {row['Producto']}")
-        with col_dismiss:
-            if st.button("✕ Descartar", key=f"dismiss_{row['SKU']}"):
-                registrar_evento("recommendation_actioned", {
-                    "sku": row["SKU"],
-                    "accion": "descartada",
-                    "senal_stock": row["señal_stock"],
-                    "senal_pricing": row["señal_pricing"],
-                    "impacto_estimado_eur": row["Impacto total €"],
-                })
-                st.toast(f"Descartada: {row['Producto']}")
+        sku = row["SKU"]
+        estado_actual = st.session_state.estado_recs.get(sku)
+ 
+        if estado_actual:
+            if estado_actual == "aplicada":
+                etiqueta = '<span style="color:#4ade80;font-weight:600;font-size:0.85rem">✓ Aplicada</span>'
+            else:
+                etiqueta = '<span style="color:#f43f5e;font-weight:600;font-size:0.85rem">✕ Descartada</span>'
+            col_estado, col_undo, _sp = st.columns([1, 1, 3])
+            with col_estado:
+                st.markdown(etiqueta, unsafe_allow_html=True)
+            with col_undo:
+                if st.button("↩ Deshacer", key=f"undo_{sku}"):
+                    del st.session_state.estado_recs[sku]
+                    _guardar_estado_recs()
+                    st.rerun()
+        else:
+            col_apply, col_dismiss, _sp = st.columns([1, 1, 3])
+            with col_apply:
+                if st.button("✓ Aplicada", key=f"apply_{sku}"):
+                    st.session_state.estado_recs[sku] = "aplicada"
+                    _guardar_estado_recs()
+                    registrar_evento("recommendation_actioned", {
+                        "sku": sku,
+                        "accion": "aplicada",
+                        "senal_stock": row["señal_stock"],
+                        "senal_pricing": row["señal_pricing"],
+                        "impacto_estimado_eur": row["Impacto total €"],
+                    })
+                    st.toast(f"Marcada como aplicada: {row['Producto']}")
+                    st.rerun()
+            with col_dismiss:
+                if st.button("✕ Descartar", key=f"dismiss_{sku}"):
+                    st.session_state.estado_recs[sku] = "descartada"
+                    _guardar_estado_recs()
+                    registrar_evento("recommendation_actioned", {
+                        "sku": sku,
+                        "accion": "descartada",
+                        "senal_stock": row["señal_stock"],
+                        "senal_pricing": row["señal_pricing"],
+                        "impacto_estimado_eur": row["Impacto total €"],
+                    })
+                    st.toast(f"Descartada: {row['Producto']}")
+                    st.rerun()
  
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-header">📊 Distribución de alertas</div>', unsafe_allow_html=True)
@@ -816,4 +865,3 @@ st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 st.markdown(
     '<div style="text-align:center;font-family:\'JetBrains Mono\',monospace;color:#334155;font-size:0.65rem;letter-spacing:0.22em;padding:10px 0">ILTONIF © 2026 · INTELLIGENCE PLATFORM · PRICING & STOCK AI · DATOS ACTUALIZADOS A DIARIO</div>',
     unsafe_allow_html=True)
- 
