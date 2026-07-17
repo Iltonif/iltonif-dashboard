@@ -407,7 +407,7 @@ header[data-testid="stHeader"] { background: transparent !important; }
 @st.cache_data
 def cargar_datos():
     base = Path(__file__).parent / "data"
-    df = pd.read_csv(base / "iltonif_dataset_modelable_v3.csv", parse_dates=["fecha"])
+    df = pd.read_csv(base / "iltonif_dataset_modelable_v4_mascotas.csv", parse_dates=["fecha"])
     return df
 
 # Mapa de las señales de stock que devuelve decision_engine (sin acentos,
@@ -761,8 +761,8 @@ with tab3:
     PALETTE = ["#1d6af5","#f43f5e","#a855f7","#4ade80"]
     fig_p = go.Figure()
     for i,(col,name) in enumerate(zip(
-        ["precio_venta","precio_decathlon","precio_trailzone","precio_outdoorpro"],
-        ["Tu precio","Decathlon","TrailZone","OutdoorPro"])):
+        ["precio_venta","precio_tiendanimal","precio_kiwoko","precio_zooplus"],
+        ["Tu precio","Tiendanimal","Kiwoko","Zooplus"])):
         fig_p.add_trace(go.Bar(name=name, x=etiquetas, y=ultimo_df[col],
             marker_color=PALETTE[i], customdata=productos,
             hovertemplate="%{customdata}<br>%{y:.2f} €<extra>" + name + "</extra>"))
@@ -784,9 +784,9 @@ with tab3:
     fig_ev = go.Figure()
     for col, name, color, dash in [
         ("precio_venta","Tu precio","#1d6af5","solid"),
-        ("precio_decathlon","Decathlon","#f43f5e","dot"),
-        ("precio_trailzone","TrailZone","#a855f7","dot"),
-        ("precio_outdoorpro","OutdoorPro","#4ade80","dot"),
+        ("precio_tiendanimal","Tiendanimal","#f43f5e","dot"),
+        ("precio_kiwoko","Kiwoko","#a855f7","dot"),
+        ("precio_zooplus","Zooplus","#4ade80","dot"),
     ]:
         fig_ev.add_trace(go.Scatter(x=df_sku["fecha"], y=df_sku[col],
             name=name, line=dict(color=color, width=2.5 if dash=="solid" else 1.5, dash=dash)))
