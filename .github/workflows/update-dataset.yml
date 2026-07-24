@@ -26,23 +26,31 @@ jobs:
       - run: pip install pandas numpy requests
 
       - name: Generar día nuevo del dataset
+        id: build_v3
         env:
           SHOPIFY_STORE: ${{ secrets.SHOPIFY_STORE }}
           SHOPIFY_TOKEN: ${{ secrets.SHOPIFY_TOKEN }}
         run: |
           if [ "${{ inputs.demo }}" = "true" ]; then
             python scripts/build_dataset.py --demo
+            echo "ran=true" >> "$GITHUB_OUTPUT"
           elif [ -n "$SHOPIFY_TOKEN" ]; then
             python scripts/build_dataset.py
+            echo "ran=true" >> "$GITHUB_OUTPUT"
           else
             echo "Sin credenciales de Shopify — no se ingiere nada (lanza a mano con demo=true para probar)."
+            echo "ran=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Regenerar demo nicho mascotas (v4) a partir del v3 actualizado
+        if: steps.build_v3.outputs.ran == 'true'
+        run: python scripts/build_dataset_mascotas_demo.py
 
       - name: Commit y push si hay cambios
         run: |
           git config user.name "iltonif-pipeline"
           git config user.email "actions@github.com"
-          git add data/iltonif_dataset_modelable_v3.csv
+          git add data/iltonif_dataset_modelable_v3.csv data/iltonif_dataset_modelable_v4_mascotas.csv
           git diff --cached --quiet && echo "Sin cambios" || {
             git commit -m "data: dataset actualizado $(date -u +%F) [pipeline]"
             git push
