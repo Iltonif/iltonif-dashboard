@@ -19,15 +19,24 @@ jobs:
 
       - name: Ping con reintentos
         run: |
+          # Presupuesto ampliado: los días en que el pipeline cambia
+          # requirements.txt (o Streamlit Cloud reinstala dependencias
+          # desde cero), el arranque puede superar los ~6 min que había
+          # antes. Ahora hay margen de hasta ~20 min antes de darse por
+          # vencido.
           URL="https://iltonif-intelligence.streamlit.app/"
-          for i in 1 2 3 4 5; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 "$URL")
-            echo "Intento $i: HTTP $code"
+          intentos=15
+          espera=60
+          for i in $(seq 1 $intentos); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$URL")
+            echo "Intento $i/$intentos: HTTP $code"
             if [ "$code" = "200" ]; then
               echo "Dashboard despierto."
               exit 0
             fi
-            sleep 60
+            if [ "$i" -lt "$intentos" ]; then
+              sleep $espera
+            fi
           done
-          echo "::error::El dashboard no respondió tras 5 intentos — revisar Streamlit Cloud"
+          echo "::error::El dashboard no respondió tras $intentos intentos (~20 min) — revisar Streamlit Cloud"
           exit 1
