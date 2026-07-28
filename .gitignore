@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .DS_Store
 venv/
+secret/
+comercial/
+Captación Cliente/
+Formalización/
+.Rhistory
