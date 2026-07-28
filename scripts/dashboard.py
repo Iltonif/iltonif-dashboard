@@ -113,8 +113,20 @@ if _POSTHOG_OK and "posthog_api_key" in st.secrets:
     posthog.api_key = st.secrets["posthog_api_key"]
     posthog.host = st.secrets.get("posthog_host", "https://eu.i.posthog.com")
 
+# ── RUTA DE DATOS ────────────────────────────────────────────
+# data/ vive en la raíz del repo. Este fichero puede estar en la raíz o en
+# scripts/ según la versión del layout, así que se buscan ambas ubicaciones.
+def _dir_datos() -> Path:
+    aqui = Path(__file__).resolve().parent
+    for candidata in (aqui / "data", aqui.parent / "data"):
+        if candidata.is_dir():
+            return candidata
+    return aqui.parent / "data"
+
+_DATA_DIR = _dir_datos()
+
 # ── ESTADO DE RECOMENDACIONES (aplicada/descartada) ──────────
-_ESTADO_RECS_PATH = Path(__file__).parent / "data" / "estado_recomendaciones.json"
+_ESTADO_RECS_PATH = _DATA_DIR / "estado_recomendaciones.json"
 
 def _cargar_estado_recs() -> dict:
     """Carga el estado guardado de las recomendaciones (sobrevive a recargas
@@ -406,8 +418,7 @@ header[data-testid="stHeader"] { background: transparent !important; }
 # ── DATOS ──────────────────────────────────────────────────────
 @st.cache_data
 def cargar_datos():
-    base = Path(__file__).parent / "data"
-    df = pd.read_csv(base / "iltonif_dataset_modelable_v4_mascotas.csv", parse_dates=["fecha"])
+    df = pd.read_csv(_DATA_DIR / "iltonif_dataset_modelable_v4_mascotas.csv", parse_dates=["fecha"])
     return df
 
 # Mapa de las señales de stock que devuelve decision_engine (sin acentos,
